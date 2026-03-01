@@ -10,10 +10,10 @@
     <meta name="apple-mobile-web-app-title" content="CSK">
     
     <!-- PWA App Manifest (Direkt eingebettet) -->
-    <link rel="manifest" href="data:application/manifest+json;charset=utf-8,%7B%22name%22%3A%22Ceylon%20Spicy%20Kitchen%22%2C%22short_name%22%3A%22CSK%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23f9fafb%22%2C%22theme_color%22%3A%22%23ea580c%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22https%3A%2F%2Fui-avatars.com%2Fapi%2F%3Fname%3DCSK%26background%3Dea580c%26color%3Dfff%26size%3D192%22%2C%22sizes%22%3A%22192x192%22%2C%22type%22%3A%22image%2Fpng%22%7D%2C%7B%22src%22%3A%22https%3A%2F%2Fui-avatars.com%2Fapi%2F%3Fname%3DCSK%26background%3Dea580c%26color%3Dfff%26size%3D512%22%2C%22sizes%22%3A%22512x512%22%2C%22type%22%3A%22image%2Fpng%22%7D%5D%7D">
+    <link rel="manifest" href="manifest.webmanifest">
     
     <!-- Apple Touch Icon Placeholder -->
-    <link rel="apple-touch-icon" href="https://ui-avatars.com/api/?name=CSK&background=ea580c&color=fff&size=192">
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 
     <title>Ceylon Spicy Kitchen</title>
     <!-- Tailwind CSS -->
@@ -39,7 +39,7 @@
         @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
         @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
-        /* PWA: Padding fÃ¼r iOS SafeArea und Mobile Bottom Nav */
+        /* PWA: Padding für iOS SafeArea und Mobile Bottom Nav */
         .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
         .main-content { padding-bottom: calc(5rem + env(safe-area-inset-bottom)); }
         @media (min-width: 768px) { .main-content { padding-bottom: 0; } }
@@ -71,7 +71,7 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         
-        // PWA Feature: Offline-Caching fÃ¼r Firestore aktivieren
+        // PWA Feature: Offline-Caching für Firestore aktivieren
         const db = initializeFirestore(app, { localCache: persistentLocalCache() });
 
         const ADMIN_EMAIL = "admin@csk.ch";
@@ -106,7 +106,7 @@
 // --- LANGUAGE SYSTEM (DE / EN / TA) ---
 const translations = {
     de: {
-        menu: "MenÃ¼",
+        menu: "Menü",
         cart: "Warenkorb",
         account: "Konto",
         admin: "Admin",
@@ -114,21 +114,21 @@ const translations = {
         my_orders: "Meine Bestellungen",
         login: "Login",
         register: "Registrieren",
-        add_to_cart: "HinzufÃ¼gen",
+        add_to_cart: "Hinzufügen",
         loading_menu: "Lade Speisekarte...",
         our_menu: "Unsere Speisekarte",
         checkout: "Zur Kasse",
         checkout_title: "Bestellung abschliessen",
         thank_you: "Vielen Dank!",
         order_success: "Deine Bestellung ist erfolgreich eingegangen.",
-        back_to_menu: "ZurÃ¼ck zur Karte",
+        back_to_menu: "Zurück zur Karte",
         install_app: "App laden",
         install: "Installieren",
                 menu_nav: "MENU",
-                welcome_back: "Willkommen zurÃ¼ck!",
+                welcome_back: "Willkommen zurück!",
                 create_account: "Konto erstellen",
                 login_hint: "Logge dich ein, um deine Bestellungen zu sehen.",
-                register_hint: "Erstelle ein Konto fÃ¼r schnellere Bestellungen.",
+                register_hint: "Erstelle ein Konto für schnellere Bestellungen.",
                 email: "E-Mail Adresse",
                 password: "Passwort",
                 sign_in: "Einloggen",
@@ -223,7 +223,7 @@ try {
                 const querySnapshot = await getDocs(collection(db, "menu"));
                 state.menuItems = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             } catch (error) {
-                console.error("Fehler beim Laden der MenÃ¼s:", error);
+                console.error("Fehler beim Laden der Menüs:", error);
             }
             state.loading = false;
             render();
@@ -244,7 +244,7 @@ try {
                     const newOrdersCount = fetchedOrders.filter(o => o.status === 'neu').length;
                     const oldOrdersCount = state.orders.filter(o => o.status === 'neu').length;
                     if (newOrdersCount > oldOrdersCount) {
-                        showToast("ðŸ”” NEUE BESTELLUNG!", "success");
+                        showToast("🔔 NEUE BESTELLUNG!", "success");
                         try { new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg').play(); } catch(e){}
                     }
                 }
@@ -443,7 +443,7 @@ try {
                 <div class="max-w-6xl mx-auto px-4 py-8 md:py-12">
                     ${state.isInstallable ? `
                         <div class="md:hidden bg-gradient-to-r from-orange-500 to-red-500 text-white p-4 rounded-2xl mb-8 flex justify-between items-center shadow-lg">
-                            <div><p class="font-bold">CSK App</p><p class="text-xs opacity-90">FÃ¼r ein besseres Erlebnis</p></div>
+                            <div><p class="font-bold">CSK App</p><p class="text-xs opacity-90">Für ein besseres Erlebnis</p></div>
                             <button data-action="install-app" class="bg-white text-orange-600 text-sm font-bold px-4 py-2 rounded-full shadow-sm"><i class="fa-solid fa-download mr-1"></i> ${t('install')}</button>
                         </div>
                     ` : ''}
@@ -640,7 +640,7 @@ try {
                                 <h4 class="text-[10px] md:text-xs font-bold uppercase tracking-widest text-gray-400 text-center mb-1">Status</h4>
                                 <div class="grid grid-cols-2 md:grid-cols-1 gap-2">
                                     <button data-action="update-status" data-id="${order.id}" data-status="neu" class="py-2.5 px-2 rounded-lg text-sm font-bold border transition ${order.status === 'neu' ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white text-gray-600 hover:bg-blue-50'}"><i class="fa-solid fa-asterisk"></i> Neu</button>
-                                    <button data-action="update-status" data-id="${order.id}" data-status="zubereitung" class="py-2.5 px-2 rounded-lg text-sm font-bold border transition ${order.status === 'zubereitung' ? 'bg-orange-500 text-white border-orange-500 shadow-md' : 'bg-white text-gray-600 hover:bg-orange-50'}"><i class="fa-solid fa-fire-burner"></i> KÃ¼che</button>
+                                    <button data-action="update-status" data-id="${order.id}" data-status="zubereitung" class="py-2.5 px-2 rounded-lg text-sm font-bold border transition ${order.status === 'zubereitung' ? 'bg-orange-500 text-white border-orange-500 shadow-md' : 'bg-white text-gray-600 hover:bg-orange-50'}"><i class="fa-solid fa-fire-burner"></i> Küche</button>
                                     <button data-action="update-status" data-id="${order.id}" data-status="abholbereit" class="py-2.5 px-2 rounded-lg text-sm font-bold border transition ${order.status === 'abholbereit' ? 'bg-green-600 text-white border-green-600 shadow-md' : 'bg-white text-gray-600 hover:bg-green-50'}"><i class="fa-solid fa-bag-shopping"></i> Bereit</button>
                                     <button data-action="update-status" data-id="${order.id}" data-status="abgeschlossen" class="py-2.5 px-2 rounded-lg text-sm font-bold border transition ${order.status === 'abgeschlossen' ? 'bg-gray-800 text-white border-gray-800 shadow-md' : 'bg-white text-gray-500 hover:bg-gray-100'}"><i class="fa-solid fa-check-double"></i> Fertig</button>
                                 </div>
@@ -664,7 +664,7 @@ try {
                             <textarea id="formDesc" required placeholder="Beschreibung" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-orange-500 h-24 text-sm">${state.form.description}</textarea>
                             <input type="number" id="formPrice" step="0.05" value="${state.form.price}" required placeholder="Preis (CHF)" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-orange-500">
                             <div class="bg-gray-50 p-3 rounded-xl border border-gray-200">
-                                <label class="block text-[10px] font-bold text-gray-500 mb-2 uppercase">Bild auswÃ¤hlen (wird komprimiert)</label>
+                                <label class="block text-[10px] font-bold text-gray-500 mb-2 uppercase">Bild auswählen (wird komprimiert)</label>
                                 <input type="file" id="formImageInput" accept="image/*" class="w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:bg-orange-100 file:text-orange-700 cursor-pointer">
                                 ${state.form.imageBase64 ? `<div class="mt-3 relative h-24 md:h-32 rounded-lg overflow-hidden"><img src="${state.form.imageBase64}" class="w-full h-full object-cover"></div>` : ''}
                             </div>
@@ -758,7 +758,7 @@ try {
                                     <div><label class="block text-xs font-bold uppercase tracking-wide text-gray-500 mb-1.5">Name / Vorname *</label><input type="text" id="coName" required class="w-full p-3.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-orange-500"></div>
                                     <div><label class="block text-xs font-bold uppercase tracking-wide text-gray-500 mb-1.5">Telefonnummer *</label><input type="tel" id="coPhone" required class="w-full p-3.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-orange-500"></div>
                                 </div>
-                                <div><label class="block text-xs font-bold uppercase tracking-wide text-gray-500 mb-1.5">GewÃ¼nschte Abholzeit *</label><input type="time" id="coTime" required class="w-full md:w-1/2 p-3.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-orange-500 text-lg font-bold"></div>
+                                <div><label class="block text-xs font-bold uppercase tracking-wide text-gray-500 mb-1.5">Gewünschte Abholzeit *</label><input type="time" id="coTime" required class="w-full md:w-1/2 p-3.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-orange-500 text-lg font-bold"></div>
 
                                 <h3 class="text-xl font-bold border-b border-gray-100 pb-3 mt-8">Zahlungsmethode</h3>
                                 <div class="space-y-3">
@@ -766,7 +766,7 @@ try {
                                         <input type="radio" name="payment" value="twint" ${state.checkoutData.paymentMethod === 'twint' ? 'checked' : ''} class="w-5 h-5 text-orange-600 focus:ring-orange-500">
                                         <span class="ml-4 font-bold text-lg flex-1 flex items-center justify-between">TWINT <span class="bg-black text-white px-2 py-0.5 rounded text-xs">TWINT</span></span>
                                     </label>
-                                    ${state.checkoutData.paymentMethod === 'twint' ? `<div class="ml-4 md:ml-9 p-3.5 bg-blue-50 text-blue-800 text-sm rounded-xl border border-blue-100"><i class="fa-solid fa-mobile-screen mr-1"></i> Ãœberweise <strong>CHF ${total.toFixed(2)}</strong> an die Nummer <strong>076 321 23 92</strong>.</div>` : ''}
+                                    ${state.checkoutData.paymentMethod === 'twint' ? `<div class="ml-4 md:ml-9 p-3.5 bg-blue-50 text-blue-800 text-sm rounded-xl border border-blue-100"><i class="fa-solid fa-mobile-screen mr-1"></i> Überweise <strong>CHF ${total.toFixed(2)}</strong> an die Nummer <strong>076 321 23 92</strong>.</div>` : ''}
 
                                     <label class="flex items-center p-4 md:p-5 border border-gray-200 rounded-2xl cursor-pointer transition ${state.checkoutData.paymentMethod === 'cash' ? 'border-orange-500 bg-orange-50 shadow-sm' : 'hover:bg-gray-50'}">
                                         <input type="radio" name="payment" value="cash" ${state.checkoutData.paymentMethod === 'cash' ? 'checked' : ''} class="w-5 h-5 text-orange-600 focus:ring-orange-500">
@@ -891,12 +891,12 @@ document.querySelectorAll('[data-action="change-language"]').forEach(sel => {
                         if (item) { state.editingItem = item; state.form = { ...item }; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
                     }
                     if (action === 'delete') {
-                        if (confirm('Wirklich lÃ¶schen?')) {
+                        if (confirm('Wirklich löschen?')) {
                             try { 
                                 const id = btn.getAttribute('data-id');
                                 await deleteDoc(doc(db, "menu", id)); 
                                 state.menuItems = state.menuItems.filter(i => i.id !== id); 
-                                showToast('Gericht gelÃ¶scht'); render(); 
+                                showToast('Gericht gelöscht'); render(); 
                             } catch (err) { alert("Fehler: " + err.message); }
                         }
                     }
@@ -935,7 +935,7 @@ document.querySelectorAll('[data-action="change-language"]').forEach(sel => {
                             showToast('Konto erfolgreich erstellt!');
                         }
                     } catch (err) { 
-                        alert("Fehler: " + (err.code === 'auth/email-already-in-use' ? 'E-Mail wird bereits verwendet.' : 'Zugangsdaten prÃ¼fen.')); 
+                        alert("Fehler: " + (err.code === 'auth/email-already-in-use' ? 'E-Mail wird bereits verwendet.' : 'Zugangsdaten prüfen.')); 
                         render();
                     }
                 });
@@ -966,7 +966,7 @@ document.querySelectorAll('[data-action="change-language"]').forEach(sel => {
                         await addDoc(collection(db, "orders"), orderObj);
                         state.cart = []; state.currentView = 'success'; window.scrollTo(0, 0); render();
                     } catch (err) {
-                        alert("Fehler bei der Bestellung. Bitte Sicherheitsregeln in Firebase prÃ¼fen.");
+                        alert("Fehler bei der Bestellung. Bitte Sicherheitsregeln in Firebase prüfen.");
                         render();
                     }
                 });
@@ -1001,6 +1001,14 @@ document.querySelectorAll('[data-action="change-language"]').forEach(sel => {
             }
         }
     </script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./service-worker.js').catch(() => {});
+    });
+  }
+</script>
+
 </body>
 </html>
 
