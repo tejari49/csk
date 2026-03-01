@@ -162,6 +162,9 @@ const translations = {
                 guide_admin_4: "Tipp: Bei Updates Seite einmal neu laden.",
                 guide_ok: "Verstanden",
                 guide_noagain: "Nicht mehr anzeigen",
+                delete_order: "Bestellung löschen",
+                confirm_delete_order: "Diese Bestellung wirklich löschen? Das kann nicht rückgängig gemacht werden.",
+                toast_order_deleted: "Bestellung gelöscht",
     },
     en: {
         menu: "Menu",
@@ -218,6 +221,9 @@ const translations = {
                 guide_admin_4: "Tip: After updates, reload once.",
                 guide_ok: "Got it",
                 guide_noagain: "Don’t show again",
+                delete_order: "Delete order",
+                confirm_delete_order: "Delete this order? This cannot be undone.",
+                toast_order_deleted: "Order deleted",
     },
 };
 
@@ -723,6 +729,10 @@ function showToastT(key, type = 'success') {
                                     <button data-action="update-status" data-id="${order.id}" data-status="abholbereit" class="py-2.5 px-2 rounded-lg text-sm font-bold border transition ${order.status === 'abholbereit' ? 'bg-green-600 text-white border-green-600 shadow-md' : 'bg-white text-gray-600 hover:bg-green-50'}"><i class="fa-solid fa-bag-shopping"></i> Bereit</button>
                                     <button data-action="update-status" data-id="${order.id}" data-status="abgeschlossen" class="py-2.5 px-2 rounded-lg text-sm font-bold border transition ${order.status === 'abgeschlossen' ? 'bg-gray-800 text-white border-gray-800 shadow-md' : 'bg-white text-gray-500 hover:bg-gray-100'}"><i class="fa-solid fa-check-double"></i> Fertig</button>
                                 </div>
+
+<button data-action="delete-order" data-id="${order.id}" class="mt-3 w-full py-2.5 px-3 rounded-lg text-sm font-bold border border-red-200 bg-white text-red-600 hover:bg-red-50 transition flex items-center justify-center gap-2">
+    <i class="fa-solid fa-trash"></i> ${t('delete_order')}
+</button>
                             </div>
                         </div>
                     `).join('')}
@@ -1038,7 +1048,22 @@ if (action === 'guide-no-again') {
                             await updateDoc(doc(db, "orders", orderId), { status: newStatus });
                             showToastT('toast_status','success');
                         } catch (err) { alert("Fehler beim Update: " + err.message); }
-                    }
+                    
+
+if (action === 'delete-order') {
+    if (state.user?.role !== 'admin') return;
+    const orderId = btn.getAttribute('data-id');
+    const ok = confirm(t('confirm_delete_order'));
+    if (!ok) return;
+    try {
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+        await deleteDoc(doc(db, "orders", orderId));
+        showToastT('toast_order_deleted', 'success');
+    } catch (err) {
+        alert("Fehler: " + err.message);
+        render();
+    }
+}}
                 });
             });
 
