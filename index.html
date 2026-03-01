@@ -115,13 +115,12 @@ const translations = {
         login: "Login",
         register: "Registrieren",
         logout: "Abmelden",
-        add: "Hinzuf├╝gen",
-        checkout: "${t('checkout')}",
-        checkout_title: "Bestellung abschliessen",
-        loading_menu: "${t('loading_menu')}",
+        add_to_cart: "${t('add_to_cart')}",
         our_menu: "${t('our_menu')}",
-        thank_you: "${t('thank_you')}",
-        order_success: "${t('order_success')}",
+        loading_menu: "${t('loading_menu')}",
+        checkout: "${t('checkout')}",
+        thanks: "${t('thanks')}",
+        order_received: "${t('order_received')}",
         back_to_menu: "${t('back_to_menu')}",
         install_app: "${t('install_app')}",
         install: "${t('install')}"
@@ -136,13 +135,12 @@ const translations = {
         login: "Login",
         register: "Register",
         logout: "Logout",
-        add: "Add",
-        checkout: "Checkout",
-        checkout_title: "Complete order",
-        loading_menu: "Loading menu...",
+        add_to_cart: "Add",
         our_menu: "Our menu",
-        thank_you: "Thank you!",
-        order_success: "Your order has been received successfully.",
+        loading_menu: "Loading menu...",
+        checkout: "Checkout",
+        thanks: "Thank you!",
+        order_received: "Your order has been received successfully.",
         back_to_menu: "Back to menu",
         install_app: "Get app",
         install: "Install"
@@ -157,13 +155,12 @@ const translations = {
         login: "роЙро│рпНроирпБро┤рпИро╡рпБ",
         register: "рокродро┐ро╡рпБ",
         logout: "ро╡рпЖро│ро┐ропрпЗро▒рпБ",
-        add: "роЪрпЗро░рпН",
-        checkout: "рокрогроорпН роЪрпЖро▓рпБродрпНрод",
-        checkout_title: "роЖро░рпНроЯро░рпН роорпБроЯро┐роХрпНроХро╡рпБроорпН",
-        loading_menu: "роорпЖройрпБ роПро▒рпНро▒рокрпНрокроЯрпБроХро┐ро▒родрпБ...",
+        add_to_cart: "роЪрпЗро░рпН",
         our_menu: "роОроЩрпНроХро│рпН роорпЖройрпБ",
-        thank_you: "роиройрпНро▒ро┐!",
-        order_success: "роЙроЩрпНроХро│рпН роЖро░рпНроЯро░рпН ро╡рпЖро▒рпНро▒ро┐роХро░рооро╛роХ рокрпЖро▒рокрпНрокроЯрпНроЯродрпБ.",
+        loading_menu: "роорпЖройрпБ роПро▒рпНро▒рокрпНрокроЯрпБроХро┐ро▒родрпБ...",
+        checkout: "рокрогроорпН роЪрпЖро▓рпБродрпНрод",
+        thanks: "роиройрпНро▒ро┐!",
+        order_received: "роЙроЩрпНроХро│рпН роЖро░рпНроЯро░рпН ро╡рпЖро▒рпНро▒ро┐роХро░рооро╛роХ рокрпЖро▒рокрпНрокроЯрпНроЯродрпБ.",
         back_to_menu: "роорпЖройрпБро╡ро┐ро▒рпНроХрпБ родро┐ро░рпБроорпНрок",
         install_app: "роЖрокрпНрокрпИ рокрпЖро▒",
         install: "роиро┐ро▒рпБро╡"
@@ -174,6 +171,18 @@ function t(key) {
     const lang = state.language || 'de';
     return (translations[lang] && translations[lang][key]) ? translations[lang][key] : (translations.de[key] || key);
 }
+
+// Persist & auto-detect language (first run)
+try {
+    const savedLang = localStorage.getItem('csk_lang');
+    if (savedLang && ['de','en','ta'].includes(savedLang)) state.language = savedLang;
+    else {
+        const nav = (navigator.language || 'de').toLowerCase();
+        if (nav.startsWith('ta')) state.language = 'ta';
+        else if (nav.startsWith('en')) state.language = 'en';
+        else state.language = 'de';
+    }
+} catch(e) {}
         let unsubscribeOrders = null;
         let isInitialOrderLoad = true;
 
@@ -470,7 +479,7 @@ function t(key) {
                                     <button data-action="modal-qty-plus" class="px-4 py-3 text-gray-600 hover:bg-gray-200 transition"><i class="fa-solid fa-plus"></i></button>
                                 </div>
                                 <button data-action="add-to-cart" class="flex-1 bg-red-600 text-white font-bold py-4 px-4 rounded-xl hover:bg-red-700 transition shadow-md flex justify-center items-center gap-2">
-                                    <i class="fa-solid fa-cart-plus"></i> Hinzuf├╝gen
+                                    <i class="fa-solid fa-cart-plus"></i> ${t('add_to_cart')}
                                 </button>
                             </div>
                         </div>
@@ -782,8 +791,8 @@ function t(key) {
             return `
                 <div class="max-w-xl mx-auto px-4 py-16 md:py-24 text-center">
                     <div class="w-20 h-20 md:w-24 md:h-24 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl md:text-4xl shadow-inner"><i class="fa-solid fa-check"></i></div>
-                    <h1 class="text-3xl md:text-4xl font-serif font-bold text-gray-800 mb-4">${t('thank_you')}</h1>
-                    <p class="text-gray-600 text-base md:text-lg mb-8">${t('order_success')}</p>
+                    <h1 class="text-3xl md:text-4xl font-serif font-bold text-gray-800 mb-4">${t('thanks')}</h1>
+                    <p class="text-gray-600 text-base md:text-lg mb-8">${t('order_received')}</p>
                     ${state.user ? `<button data-action="nav-my-orders" class="bg-orange-500 text-white px-8 py-3.5 rounded-full font-bold shadow-lg mb-4 block w-full hover:bg-orange-600 transition">Bestellstatus ansehen</button>` : ''}
                     <button data-action="nav-menu" class="text-gray-500 font-bold hover:text-gray-800 underline p-2">${t('back_to_menu')}</button>
                 </div>
@@ -804,11 +813,11 @@ function t(key) {
 
         // --- 6. EVENT LISTENER ---
         function attachEventListeners() {
-
 // Language Switcher
 document.querySelectorAll('[data-action="change-language"]').forEach(sel => {
     sel.addEventListener('change', (e) => {
         state.language = e.target.value;
+        try { localStorage.setItem('csk_lang', state.language); } catch(e) {}
         render();
     });
 });
