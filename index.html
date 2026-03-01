@@ -1039,16 +1039,15 @@ if (action === 'guide-no-again') {
                             } catch (err) { alert("Fehler: " + err.message); }
                         }
                     }
-
-                    if (action === 'update-status') {
-                        const orderId = btn.getAttribute('data-id');
-                        const newStatus = btn.getAttribute('data-status');
-                        try {
-                            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-                            await updateDoc(doc(db, "orders", orderId), { status: newStatus });
-                            showToastT('toast_status','success');
-                        } catch (err) { alert("Fehler beim Update: " + err.message); }
-                    
+if (action === 'update-status') {
+    const orderId = btn.getAttribute('data-id');
+    const newStatus = btn.getAttribute('data-status');
+    try {
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+        await updateDoc(doc(db, "orders", orderId), { status: newStatus });
+        showToastT('toast_status','success');
+    } catch (err) { alert("Fehler beim Update: " + err.message); }
+}
 
 if (action === 'delete-order') {
     if (state.user?.role !== 'admin') return;
@@ -1063,10 +1062,7 @@ if (action === 'delete-order') {
         alert("Fehler: " + err.message);
         render();
     }
-}}
-                });
-            });
-
+}
             document.querySelectorAll('input[name="payment"]').forEach(radio => {
                 radio.addEventListener('change', (e) => { state.checkoutData.paymentMethod = e.target.value; render(); });
             });
