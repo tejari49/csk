@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ceylon Spicy Kitchen</title>
+    <!-- Tailwind CSS für das Design -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome für Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Playfair+Display:wght@700&display=swap');
+        
+        .font-cursive { font-family: 'Dancing Script', cursive; }
+        .font-serif { font-family: 'Playfair Display', serif; }
+        
+        /* Lade-Animation */
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #ea580c;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        /* Modal & Toast Animation */
+        .modal-enter { animation: fadeIn 0.3s ease-out forwards; }
+        .toast-enter { animation: slideInRight 0.4s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    </style>
+</head>
+<body class="bg-gray-50 flex flex-col min-h-screen text-gray-800">
+
+    <!-- Hauptcontainer für die App -->
+    <div id="app" class="flex flex-col min-h-screen relative"></div>
+    
+    <!-- Toast Container für Benachrichtigungen -->
+    <div id="toast-container" class="fixed top-20 right-4 z-50 flex flex-col gap-2"></div>
+
+    <!-- Firebase & App Logik -->
+    <script type="module">
+        // --- 1. FIREBASE SETUP ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, onSnapshot, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Deine Firebase Konfiguration
+        const firebaseConfig = {
+            apiKey: "AIzaSyATA1qkCcaMaw1BphKh8GUh8IvyqXG0MOE",
+            authDomain: "csk-siva.firebaseapp.com",
+            projectId: "csk-siva",
+            storageBucket: "csk-siva.firebasestorage.app",
+            messagingSenderId: "1068097396588",
+            appId: "1:1068097396588:web:d559df8498f95d34fa5d49"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // --- DEIN ADMIN ACCOUNT ---
+        // WICHTIG: Trage hier exakt deine Admin E-Mail ein!
+        const ADMIN_EMAIL = "admin@csk.ch";
+
+        // --- 2. STATE (Zustand der App) ---
+        let state = {
+            currentView: 'menu', // 'menu', 'login', 'admin', 'checkout', 'success', 'my-orders'
+            user: null, // null oder { email, uid, role: 'admin' | 'customer' }
+            menuItems: [],
+            orders: [], // Live-Bestellungen
+            loading: true,
+            
+            // UI Zustände
+            editingItem: null,
+            form: { name: '', description: '', price: '', imageBase64: '' },
+            adminTab: 'orders', // 'orders' oder 'menu'
+            authMode: 'login', // 'login' oder 'register'
+            
+            // Warenkorb
+            cart: [], 
+            isCartOpen: false, 
+            selectedItem: null, 
+            selectedQuantity: 1, 
+            checkoutData: { name: '', phone: '', pickupTime: '', paymentMethod: 'twint' }
+        };
+
+        let unsubscribeOrders = null;
+        let isInitialOrderLoad = true;
+
+        // --- 3. INIT & DATEN LADEN ---
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                const role = user.email === ADMIN_EMAIL ? 'admin' : 'customer';
+                state.user = { email: user.email, uid: user.uid, role: role };
+                setupOrderListener(); // Starte Live-Überwachung
+            } else {
+                state.user = null;
+                state.orders = [];
+                if (unsubscribeOrders) { unsubscribeOrders(); unsubscribeOrders = null; }
+                if (state.currentView === 'admin' || state.currentView === 'my-orders') state.currentView = 'menu';
+            }
+            render();
+        });
+
+        async function fetchMenuItems() {
+            state.loading = true;
+            render();
+            try {
+                const querySnapshot = await getDocs(collection(db, "menu"));
+                state.menuItems = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            } catch (error) {
+                console.error("Fehler beim Laden der Menüs:", error);
+            }
+            state.loading = false;
+            render();
+        }
+
+        fetchMenuItems();
+
+        // --- LIVE BESTELLUNGEN ÜBERWACHEN ---
+        function setupOrderListener() {
+            if (unsubscribeOrders) { unsubscribeOrders(); }
+            if (!state.user) return;
+
+            const ordersRef = collection(db, "orders");
+            // Admin sieht alle, Kunde sieht nur seine eigenen
+            const q = state.user.role === 'admin' 
+                ? query(ordersRef) 
+                : query(ordersRef, where("userId", "==", state.user.uid));
+
+            unsubscribeOrders = onSnapshot(q, (snapshot) => {
+                const fetchedOrders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                
+                // Sortieren: Neueste zuerst (im Code, um komplexe Firebase Indizes zu vermeiden)
+                fetchedOrders.sort((a, b) => {
+                    const tA = a.createdAt?.toMillis() || 0;
+                    const tB = b.createdAt?.toMillis() || 0;
+                    return tB - tA;
+                });
+
+                // Benachrichtigung für Admin bei neuen Bestellungen (vermeidet Alarm beim ersten Laden)
+                if (!isInitialOrderLoad && state.user.role === 'admin') {
+                    const newOrdersCount = fetchedOrders.filter(o => o.status === 'neu').length;
+                    const oldOrdersCount = state.orders.filter(o => o.status === 'neu').length;
+                    if (newOrdersCount > oldOrdersCount) {
+                        showToast("🔔 NEUE BESTELLUNG EINGEGANGEN!", "success");
+                        // Versuche einen Ton abzuspielen (wird von Browsern oft blockiert, wenn nicht interagiert)
+                        try { new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg').play(); } catch(e){}
+                    }
+                }
+
+                state.orders = fetchedOrders;
+                isInitialOrderLoad = false;
+                
+                // UI aktualisieren, wenn wir auf einer relevanten Seite sind
+                if (state.currentView === 'admin' || state.currentView === 'my-orders') render();
+                // Auch Header rendern (falls sich ein Badge ändert)
+                else render(); 
+            }, (error) => {
+                console.error("Fehler beim Überwachen der Bestellungen:", error);
+            });
+        }
+
+        // --- 4. HILFSFUNKTIONEN ---
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const color = type === 'success' ? 'bg-green-600' : 'bg-red-600';
+            toast.className = `${color} text-white px-6 py-3 rounded-lg shadow-xl font-bold toast-enter flex items-center gap-2`;
+            toast.innerHTML = `<i class="fa-solid ${type === 'success' ? 'fa-bell' : 'fa-triangle-exclamation'}"></i> ${message}`;
+            container.appendChild(toast);
+            setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 4000);
+        }
+
+        function compressImageToBase64(file, callback) {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = event => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 800;
+                    let width = img.width;
+                    let height = img.height;
+                    if (width > MAX_WIDTH) { height = Math.round((height * MAX_WIDTH) / width); width = MAX_WIDTH; }
+                    canvas.width = width; canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    callback(canvas.toDataURL('image/jpeg', 0.7));
+                };
+            };
+        }
+
+        function calculateCartTotal() {
+            return state.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        }
+
+        function formatTime(timestamp) {
+            if (!timestamp) return 'Gerade eben';
+            const date = new Date(timestamp.toMillis());
+            return date.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }) + ' Uhr';
+        }
+
+        function getStatusBadge(status) {
+            switch(status) {
+                case 'neu': return `<span class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-bold border border-blue-200"><i class="fa-solid fa-asterisk"></i> Neu</span>`;
+                case 'zubereitung': return `<span class="bg-orange-100 text-orange-800 px-2 py-1 rounded text-xs font-bold border border-orange-200"><i class="fa-solid fa-fire-burner"></i> Wird zubereitet</span>`;
+                case 'abholbereit': return `<span class="bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-bold border border-green-200"><i class="fa-solid fa-bag-shopping"></i> Abholbereit</span>`;
+                case 'abgeschlossen': return `<span class="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-bold border border-gray-200"><i class="fa-solid fa-check-double"></i> Abgeschlossen</span>`;
+                default: return `<span class="bg-gray-100 text-gray-800 px-2 py-1 rounded text-xs font-bold">${status}</span>`;
+            }
+        }
+
+        // --- 5. RENDER LOGIK ---
+        function render() {
+            const appDiv = document.getElementById('app');
+            appDiv.innerHTML = `
+                ${renderHeader()}
+                <main class="flex-1">
+                    ${state.currentView === 'menu' ? renderMenu() : ''}
+                    ${state.currentView === 'login' ? renderAuth() : ''}
+                    ${state.currentView === 'admin' ? renderAdmin() : ''}
+                    ${state.currentView === 'my-orders' ? renderMyOrders() : ''}
+                    ${state.currentView === 'checkout' ? renderCheckout() : ''}
+                    ${state.currentView === 'success' ? renderSuccess() : ''}
+                </main>
+                ${renderFooter()}
+                ${state.selectedItem ? renderItemModal() : ''}
+                ${state.isCartOpen ? renderCartModal() : ''}
+            `;
+            attachEventListeners();
+        }
+
+        function renderHeader() {
+            const cartCount = state.cart.reduce((sum, item) => sum + item.quantity, 0);
+            
+            return `
+                <header class="bg-white shadow-md sticky top-0 z-40">
+                    <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+                        <div class="flex items-center gap-3 cursor-pointer" data-action="nav-menu">
+                            <div class="w-12 h-12 rounded-full border-2 border-orange-500 flex items-center justify-center bg-white shadow-sm overflow-hidden">
+                                <span class="text-orange-500 font-bold text-xl">CSK</span>
+                            </div>
+                            <div class="flex flex-col">
+                                <span class="text-red-600 font-bold text-3xl font-cursive leading-none">Ceylon</span>
+                                <span class="text-black font-serif text-lg leading-none font-bold tracking-wide uppercase mt-1 hidden sm:block">Spicy Kitchen</span>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-4">
+                            <!-- Warenkorb -->
+                            <button data-action="toggle-cart" class="relative text-gray-800 hover:text-red-600 transition p-2">
+                                <i class="fa-solid fa-cart-shopping text-2xl"></i>
+                                ${cartCount > 0 ? `<span class="absolute top-0 right-0 bg-red-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center transform translate-x-1 -translate-y-1">${cartCount}</span>` : ''}
+                            </button>
+
+                            <!-- Navigation Desktop -->
+                            <nav class="hidden md:flex items-center gap-4 border-l pl-4 ml-2 border-gray-200">
+                                ${!state.user ? `
+                                    <button data-action="nav-login" class="flex items-center gap-2 text-sm font-bold text-gray-600 hover:text-orange-500 bg-gray-100 px-4 py-2 rounded-full transition">
+                                        <i class="fa-solid fa-user"></i> Login / Registrieren
+                                    </button>
+                                ` : `
+                                    ${state.user.role === 'admin' ? `
+                                        <button data-action="nav-admin" class="font-medium px-3 py-1 rounded-md transition ${state.currentView === 'admin' ? 'bg-orange-100 text-orange-600' : 'text-gray-600 hover:bg-gray-100'}">
+                                            <i class="fa-solid fa-gear"></i> Admin
+                                        </button>
+                                    ` : `
+                                        <button data-action="nav-my-orders" class="font-medium px-3 py-1 rounded-md transition ${state.currentView === 'my-orders' ? 'bg-orange-100 text-orange-600' : 'text-gray-600 hover:bg-gray-100'}">
+                                            <i class="fa-solid fa-list-check"></i> Meine Bestellungen
+                                        </button>
+                                    `}
+                                    <button data-action="logout" class="text-gray-400 hover:text-red-600 transition" title="Logout">
+                                        <i class="fa-solid fa-right-from-bracket text-lg"></i>
+                                    </button>
+                                `}
+                            </nav>
+                            
+                            <!-- Mobile Menu Toggle -->
+                            <div class="md:hidden flex items-center ml-2 border-l pl-4 border-gray-200">
+                                ${!state.user ? `
+                                    <button data-action="nav-login" class="text-gray-600"><i class="fa-solid fa-user text-xl"></i></button>
+                                ` : `
+                                    <button data-action="${state.user.role === 'admin' ? 'nav-admin' : 'nav-my-orders'}" class="text-orange-500 mr-3"><i class="fa-solid ${state.user.role === 'admin' ? 'fa-gear' : 'fa-list-check'} text-xl"></i></button>
+                                    <button data-action="logout" class="text-gray-400"><i class="fa-solid fa-right-from-bracket text-xl"></i></button>
+                                `}
+                            </div>
+                        </div>
+                    </div>
+                </header>
+            `;
+        }
+
+        // 1. MENU ANSICHT (Geändert: Nur Bild, Titel, Preis)
+        function renderMenu() {
+            if (state.loading) return `<div class="py-20 text-center"><div class="loader"></div><p class="mt-4 text-gray-500">Lade Speisekarte...</p></div>`;
+
+            let itemsHtml = state.menuItems.length === 0 
+                ? `<div class="col-span-full text-center py-10 text-gray-500">Noch keine Gerichte vorhanden.</div>`
+                : state.menuItems.map(item => `
+                    <div data-action="view-item" data-id="${item.id}" class="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100 hover:shadow-xl hover:-translate-y-1 hover:border-orange-300 transition-all duration-300 flex flex-col cursor-pointer group relative">
+                        <!-- Preis Label -->
+                        <div class="absolute top-4 right-4 z-10 bg-white px-4 py-1.5 rounded-full font-bold text-red-600 shadow-md border border-red-50">
+                            CHF ${parseFloat(item.price).toFixed(2)}
+                        </div>
+                        
+                        <div class="h-48 sm:h-56 overflow-hidden relative bg-gray-50 flex items-center justify-center">
+                            ${item.imageBase64 
+                                ? `<img src="${item.imageBase64}" alt="${item.name}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-in-out">` 
+                                : `<i class="fa-solid fa-utensils text-4xl text-gray-300"></i>`
+                            }
+                            <!-- Overlay beim Hover -->
+                            <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-300 flex items-center justify-center">
+                                <span class="bg-orange-500 text-white font-bold px-4 py-2 rounded-full opacity-0 group-hover:opacity-100 transform translate-y-4 group-hover:translate-y-0 transition-all duration-300 shadow-lg">
+                                    <i class="fa-solid fa-magnifying-glass mr-1"></i> Details
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <div class="p-5 text-center bg-white relative z-20">
+                            <h3 class="text-xl font-bold text-gray-800 line-clamp-1">${item.name}</h3>
+                        </div>
+                    </div>
+                `).join('');
+
+            return `
+                <div class="max-w-6xl mx-auto px-4 py-12">
+                    <div class="text-center mb-12">
+                        <h1 class="text-4xl font-serif font-bold text-gray-800 mb-3">Unsere Speisekarte</h1>
+                        <p class="text-gray-500 italic">"Your guide to healthy, tasty, food."</p>
+                        <div class="w-24 h-1 bg-orange-500 mx-auto mt-6 rounded"></div>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+                        ${itemsHtml}
+                    </div>
+                </div>
+            `;
+        }
+
+        // 2. MODAL: GERICHT DETAILS
+        function renderItemModal() {
+            const item = state.selectedItem;
+            return `
+                <div class="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4 backdrop-blur-sm modal-enter">
+                    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+                        <div class="relative h-64 bg-gray-100 flex-shrink-0">
+                            ${item.imageBase64 ? `<img src="${item.imageBase64}" class="w-full h-full object-cover">` : `<div class="w-full h-full flex items-center justify-center"><i class="fa-solid fa-utensils text-5xl text-gray-300"></i></div>`}
+                            <button data-action="close-modal" class="absolute top-4 right-4 bg-white text-gray-800 w-10 h-10 rounded-full flex items-center justify-center shadow-lg hover:bg-gray-100 hover:text-red-600 transition">
+                                <i class="fa-solid fa-xmark text-xl"></i>
+                            </button>
+                        </div>
+                        <div class="p-6 overflow-y-auto">
+                            <div class="flex justify-between items-start mb-4">
+                                <h2 class="text-3xl font-bold text-gray-800 font-serif">${item.name}</h2>
+                                <span class="text-2xl font-bold text-red-600 whitespace-nowrap ml-4">CHF ${parseFloat(item.price).toFixed(2)}</span>
+                            </div>
+                            <h4 class="text-xs uppercase tracking-widest text-gray-400 font-bold mb-2">Beschreibung</h4>
+                            <p class="text-gray-600 leading-relaxed mb-8 bg-gray-50 p-4 rounded-xl border border-gray-100">${item.description}</p>
+                            
+                            <div class="flex items-center gap-4 mt-auto pt-4 border-t border-gray-100">
+                                <div class="flex items-center bg-gray-100 rounded-lg border border-gray-200 overflow-hidden">
+                                    <button data-action="modal-qty-minus" class="px-4 py-3 text-gray-600 hover:bg-gray-200 transition"><i class="fa-solid fa-minus"></i></button>
+                                    <span class="px-4 py-3 font-bold bg-white w-12 text-center">${state.selectedQuantity}</span>
+                                    <button data-action="modal-qty-plus" class="px-4 py-3 text-gray-600 hover:bg-gray-200 transition"><i class="fa-solid fa-plus"></i></button>
+                                </div>
+                                <button data-action="add-to-cart" class="flex-1 bg-red-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-red-700 transition shadow-md flex justify-center items-center gap-2">
+                                    <i class="fa-solid fa-cart-plus"></i> In den Warenkorb
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 3. KUNDENKONTO / LOGIN
+        function renderAuth() {
+            const isLogin = state.authMode === 'login';
+            return `
+                <div class="max-w-md mx-auto px-4 py-16">
+                    <div class="bg-white p-8 rounded-2xl shadow-xl border border-gray-100">
+                        <div class="text-center mb-8">
+                            <div class="w-16 h-16 bg-orange-50 text-orange-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+                                <i class="fa-solid ${isLogin ? 'fa-right-to-bracket' : 'fa-user-plus'}"></i>
+                            </div>
+                            <h2 class="text-2xl font-bold text-gray-800">${isLogin ? 'Willkommen zurück!' : 'Kundenkonto erstellen'}</h2>
+                            <p class="text-sm text-gray-500 mt-2">
+                                ${isLogin ? 'Logge dich ein, um deine Bestellungen zu sehen.' : 'Erstelle ein Konto für schnellere Bestellungen.'}
+                            </p>
+                        </div>
+                        
+                        <form id="authForm" class="space-y-5">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">E-Mail Adresse</label>
+                                <input type="email" id="authEmail" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none transition">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Passwort</label>
+                                <input type="password" id="authPassword" required minlength="6" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none transition">
+                            </div>
+                            <button type="submit" class="w-full bg-orange-600 text-white font-bold py-3 rounded-lg hover:bg-orange-700 transition shadow-md">
+                                ${isLogin ? 'Einloggen' : 'Registrieren'}
+                            </button>
+                        </form>
+                        
+                        <div class="mt-6 text-center text-sm text-gray-500">
+                            ${isLogin ? 'Noch kein Konto?' : 'Bereits registriert?'} 
+                            <button data-action="toggle-auth-mode" class="text-orange-600 font-bold hover:underline">
+                                ${isLogin ? 'Hier registrieren' : 'Hier einloggen'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 4. KUNDENBEREICH: MEINE BESTELLUNGEN
+        function renderMyOrders() {
+            if (!state.user || state.user.role === 'admin') return '';
+            
+            const ordersHtml = state.orders.length === 0 
+                ? `<div class="bg-white p-10 rounded-2xl border border-gray-100 text-center text-gray-500 shadow-sm"><i class="fa-solid fa-receipt text-4xl text-gray-300 mb-3 block"></i>Du hast noch keine Bestellungen aufgegeben.</div>`
+                : state.orders.map(order => `
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-4 hover:shadow-md transition">
+                        <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-4 border-b pb-4">
+                            <div>
+                                <div class="text-sm text-gray-500 mb-1">Bestellt am: ${formatTime(order.createdAt)}</div>
+                                <div class="font-bold text-lg text-gray-800">CHF ${order.totalAmount.toFixed(2)}</div>
+                            </div>
+                            <div class="text-right flex flex-col items-end gap-2">
+                                ${getStatusBadge(order.status)}
+                                <div class="text-sm text-gray-500"><i class="fa-regular fa-clock"></i> Abholung: <span class="font-bold text-gray-800">${order.customer.pickupTime} Uhr</span></div>
+                            </div>
+                        </div>
+                        <div class="space-y-2">
+                            <h4 class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">Bestellte Gerichte</h4>
+                            ${order.items.map(item => `
+                                <div class="flex items-center gap-3 text-sm">
+                                    <span class="bg-gray-100 text-gray-600 font-bold px-2 py-0.5 rounded">${item.quantity}x</span>
+                                    <span class="text-gray-800 font-medium">${item.name}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `).join('');
+
+            return `
+                <div class="max-w-4xl mx-auto px-4 py-8">
+                    <h1 class="text-3xl font-serif font-bold text-gray-800 mb-8 flex items-center gap-3">
+                        <i class="fa-solid fa-list-check text-orange-500"></i> Meine Bestellungen
+                    </h1>
+                    ${ordersHtml}
+                </div>
+            `;
+        }
+
+        // 5. ADMIN DASHBOARD
+        function renderAdmin() {
+            if (!state.user || state.user.role !== 'admin') return `<div class="text-center py-20 font-bold">Zugriff verweigert.</div>`;
+
+            const isOrdersTab = state.adminTab === 'orders';
+            const openOrdersCount = state.orders.filter(o => o.status === 'neu' || o.status === 'zubereitung').length;
+
+            return `
+                <div class="max-w-6xl mx-auto px-4 py-8">
+                    <div class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4 border-b border-gray-200 pb-4">
+                        <h1 class="text-3xl font-bold flex items-center gap-3 text-gray-800">
+                            <i class="fa-solid fa-gear text-gray-400"></i> Admin Zentrale
+                        </h1>
+                        <div class="flex bg-gray-100 p-1 rounded-lg">
+                            <button data-action="admin-tab-orders" class="px-6 py-2 rounded-md font-bold transition flex items-center gap-2 ${isOrdersTab ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-500 hover:text-gray-800'}">
+                                <i class="fa-solid fa-bell"></i> Live-Bestellungen 
+                                ${openOrdersCount > 0 ? `<span class="bg-red-600 text-white text-xs px-2 py-0.5 rounded-full">${openOrdersCount}</span>` : ''}
+                            </button>
+                            <button data-action="admin-tab-menu" class="px-6 py-2 rounded-md font-bold transition flex items-center gap-2 ${!isOrdersTab ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-500 hover:text-gray-800'}">
+                                <i class="fa-solid fa-utensils"></i> Speisekarte
+                            </button>
+                        </div>
+                    </div>
+                    
+                    ${isOrdersTab ? renderAdminOrders() : renderAdminMenu()}
+                </div>
+            `;
+        }
+
+        // ADMIN: BESTELLUNGEN TAB
+        function renderAdminOrders() {
+            if (state.orders.length === 0) return `<div class="text-center py-10 bg-white rounded-xl border text-gray-500">Noch keine Bestellungen vorhanden.</div>`;
+
+            return `
+                <div class="grid grid-cols-1 gap-6">
+                    ${state.orders.map(order => `
+                        <div class="bg-white rounded-2xl shadow-sm border ${order.status === 'neu' ? 'border-blue-300 shadow-blue-100' : 'border-gray-200'} overflow-hidden flex flex-col md:flex-row">
+                            <!-- Linke Seite: Infos -->
+                            <div class="p-6 md:w-2/3 border-b md:border-b-0 md:border-r border-gray-100">
+                                <div class="flex justify-between items-start mb-4">
+                                    <div>
+                                        ${getStatusBadge(order.status)}
+                                        <h3 class="text-xl font-bold mt-2">${order.customer.name}</h3>
+                                        <p class="text-gray-500 text-sm"><i class="fa-solid fa-phone text-xs"></i> ${order.customer.phone}</p>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="text-sm text-gray-500">Bestellt: ${formatTime(order.createdAt)}</div>
+                                        <div class="font-bold text-red-600 text-lg">Abholung: ${order.customer.pickupTime} Uhr</div>
+                                        <div class="text-sm font-bold text-gray-600 bg-gray-100 px-2 py-1 rounded inline-block mt-1">${order.customer.paymentMethod === 'twint' ? 'TWINT' : 'Barzahlung'}</div>
+                                    </div>
+                                </div>
+                                <div class="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                                    ${order.items.map(item => `
+                                        <div class="flex justify-between py-1 border-b border-gray-100 last:border-0">
+                                            <span class="font-medium"><span class="text-orange-600 mr-2">${item.quantity}x</span> ${item.name}</span>
+                                            <span class="text-gray-500">CHF ${(item.price * item.quantity).toFixed(2)}</span>
+                                        </div>
+                                    `).join('')}
+                                    <div class="flex justify-between pt-2 mt-2 border-t border-gray-200 font-bold text-lg">
+                                        <span>Total</span>
+                                        <span>CHF ${order.totalAmount.toFixed(2)}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Rechte Seite: Aktionen -->
+                            <div class="p-6 md:w-1/3 bg-gray-50 flex flex-col justify-center gap-3">
+                                <h4 class="text-xs font-bold uppercase tracking-widest text-gray-400 text-center mb-2">Status ändern</h4>
+                                <button data-action="update-status" data-id="${order.id}" data-status="neu" class="py-2.5 px-4 rounded-lg font-bold border transition ${order.status === 'neu' ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white text-gray-600 hover:bg-blue-50 border-gray-200'}">
+                                    <i class="fa-solid fa-asterisk w-5"></i> Neu
+                                </button>
+                                <button data-action="update-status" data-id="${order.id}" data-status="zubereitung" class="py-2.5 px-4 rounded-lg font-bold border transition ${order.status === 'zubereitung' ? 'bg-orange-500 text-white border-orange-500 shadow-md' : 'bg-white text-gray-600 hover:bg-orange-50 border-gray-200'}">
+                                    <i class="fa-solid fa-fire-burner w-5"></i> Zubereitung
+                                </button>
+                                <button data-action="update-status" data-id="${order.id}" data-status="abholbereit" class="py-2.5 px-4 rounded-lg font-bold border transition ${order.status === 'abholbereit' ? 'bg-green-600 text-white border-green-600 shadow-md' : 'bg-white text-gray-600 hover:bg-green-50 border-gray-200'}">
+                                    <i class="fa-solid fa-bag-shopping w-5"></i> Abholbereit
+                                </button>
+                                <button data-action="update-status" data-id="${order.id}" data-status="abgeschlossen" class="py-2.5 px-4 rounded-lg font-bold border transition mt-2 ${order.status === 'abgeschlossen' ? 'bg-gray-800 text-white border-gray-800 shadow-md' : 'bg-white text-gray-500 hover:bg-gray-100 border-gray-200'}">
+                                    <i class="fa-solid fa-check-double w-5"></i> Abschliessen
+                                </button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        // ADMIN: MENU TAB (Alter Code)
+        function renderAdminMenu() {
+            return `
+                <div class="flex justify-end mb-4">
+                    <button data-action="new-item" class="bg-orange-500 text-white px-5 py-2 rounded-lg font-bold shadow hover:bg-orange-600 transition"><i class="fa-solid fa-plus"></i> Neues Gericht</button>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div class="lg:col-span-1 bg-white p-6 rounded-2xl shadow-md h-fit sticky top-24 border border-gray-100">
+                        <h2 class="text-xl font-bold mb-4 border-b pb-2">${state.editingItem ? 'Bearbeiten' : 'Neues Gericht'}</h2>
+                        <form id="adminForm" class="space-y-4">
+                            <input type="text" id="formName" value="${state.form.name}" required placeholder="Name des Gerichts" class="w-full p-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-orange-500">
+                            <textarea id="formDesc" required placeholder="Beschreibung" class="w-full p-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-orange-500 h-24">${state.form.description}</textarea>
+                            <input type="number" id="formPrice" step="0.05" value="${state.form.price}" required placeholder="Preis (CHF)" class="w-full p-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-orange-500">
+                            <div class="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                                <label class="block text-xs font-bold text-gray-500 mb-2 uppercase">Bild auswählen</label>
+                                <input type="file" id="formImageInput" accept="image/*" class="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-orange-100 file:text-orange-700 cursor-pointer">
+                                ${state.form.imageBase64 ? `<div class="mt-3 relative h-32 rounded-lg overflow-hidden"><img src="${state.form.imageBase64}" class="w-full h-full object-cover"></div>` : ''}
+                            </div>
+                            <div class="flex gap-2 pt-2">
+                                <button type="submit" class="flex-1 bg-green-600 text-white py-3 rounded-lg font-bold shadow hover:bg-green-700 transition">Speichern</button>
+                                ${state.editingItem ? `<button type="button" data-action="cancel-edit" class="bg-gray-200 py-3 px-4 rounded-lg font-bold text-gray-700 hover:bg-gray-300">Abbruch</button>` : ''}
+                            </div>
+                        </form>
+                    </div>
+                    <div class="lg:col-span-2 space-y-3">
+                        ${state.menuItems.length === 0 ? '<div class="text-center py-10 bg-white rounded-xl border text-gray-500">Keine Gerichte.</div>' : ''}
+                        ${state.menuItems.map(item => `
+                            <div class="bg-white p-3 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
+                                <div class="w-16 h-16 bg-gray-100 rounded-lg flex-shrink-0 overflow-hidden">
+                                    ${item.imageBase64 ? `<img src="${item.imageBase64}" class="w-full h-full object-cover">` : `<i class="fa-solid fa-image text-gray-300 m-4"></i>`}
+                                </div>
+                                <div class="flex-1">
+                                    <h3 class="font-bold text-gray-800">${item.name}</h3><p class="text-red-600 font-bold text-sm">CHF ${parseFloat(item.price).toFixed(2)}</p>
+                                </div>
+                                <button data-action="edit" data-id="${item.id}" class="text-blue-500 hover:bg-blue-50 p-2 rounded transition"><i class="fa-solid fa-pen"></i></button>
+                                <button data-action="delete" data-id="${item.id}" class="text-red-500 hover:bg-red-50 p-2 rounded transition"><i class="fa-solid fa-trash"></i></button>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- RESTLICHE UI (Warenkorb, Checkout, Footer) ---
+        function renderCartModal() {
+            const total = calculateCartTotal();
+            let cartItemsHtml = state.cart.length === 0 
+                ? `<div class="text-center py-10 text-gray-500"><i class="fa-solid fa-basket-shopping text-4xl mb-3 text-gray-300 block"></i>Warenkorb ist leer.</div>`
+                : state.cart.map((item, index) => `
+                    <div class="flex items-center gap-4 py-4 border-b border-gray-100">
+                        <div class="w-16 h-16 rounded-md bg-gray-100 overflow-hidden flex-shrink-0">
+                            ${item.imageBase64 ? `<img src="${item.imageBase64}" class="w-full h-full object-cover">` : ''}
+                        </div>
+                        <div class="flex-1">
+                            <h4 class="font-bold text-gray-800 text-sm">${item.name}</h4>
+                            <div class="text-red-600 font-bold text-sm">CHF ${parseFloat(item.price).toFixed(2)}</div>
+                        </div>
+                        <div class="flex items-center bg-gray-100 rounded border border-gray-200">
+                            <button data-action="cart-minus" data-index="${index}" class="px-2 py-1 text-gray-600 hover:bg-gray-200"><i class="fa-solid fa-minus text-xs"></i></button>
+                            <span class="px-2 text-sm font-bold">${item.quantity}</span>
+                            <button data-action="cart-plus" data-index="${index}" class="px-2 py-1 text-gray-600 hover:bg-gray-200"><i class="fa-solid fa-plus text-xs"></i></button>
+                        </div>
+                        <button data-action="cart-remove" data-index="${index}" class="text-gray-400 hover:text-red-600 p-2"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                `).join('');
+
+            return `
+                <div class="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-end modal-enter">
+                    <div class="bg-white w-full max-w-md h-full shadow-2xl flex flex-col">
+                        <div class="p-5 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+                            <h2 class="text-xl font-bold flex items-center gap-2"><i class="fa-solid fa-cart-shopping text-orange-500"></i> Warenkorb</h2>
+                            <button data-action="toggle-cart" class="text-gray-500 hover:text-red-600 p-2"><i class="fa-solid fa-xmark text-xl"></i></button>
+                        </div>
+                        <div class="flex-1 overflow-y-auto p-5">${cartItemsHtml}</div>
+                        ${state.cart.length > 0 ? `
+                            <div class="p-5 border-t border-gray-200 bg-gray-50">
+                                <div class="flex justify-between items-center mb-4 text-lg font-bold"><span>Total</span><span class="text-red-600">CHF ${total.toFixed(2)}</span></div>
+                                <button data-action="go-checkout" class="w-full bg-green-600 text-white font-bold py-3 rounded-lg hover:bg-green-700 shadow-md flex justify-center items-center gap-2">Zur Kasse <i class="fa-solid fa-arrow-right"></i></button>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderCheckout() {
+            if (state.cart.length === 0) { state.currentView = 'menu'; return renderMenu(); }
+            const total = calculateCartTotal();
+            
+            return `
+                <div class="max-w-4xl mx-auto px-4 py-8 md:py-12">
+                    <h1 class="text-3xl font-serif font-bold text-gray-800 mb-8 border-b pb-4">Kasse</h1>
+                    
+                    ${!state.user ? `
+                        <div class="bg-orange-50 border border-orange-200 p-4 rounded-xl mb-8 flex justify-between items-center">
+                            <div><p class="font-bold text-orange-800">Noch nicht eingeloggt?</p><p class="text-sm text-orange-700">Logge dich ein, um diese Bestellung in deinem Konto zu speichern.</p></div>
+                            <button data-action="nav-login" class="bg-orange-600 text-white px-4 py-2 rounded-lg font-bold text-sm shadow">Einloggen</button>
+                        </div>
+                    ` : ''}
+
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <div class="lg:col-span-2">
+                            <form id="checkoutForm" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-6">
+                                <h3 class="text-xl font-bold border-b pb-2">Abhol-Daten</h3>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div><label class="block text-sm font-bold text-gray-700 mb-1">Name / Vorname *</label><input type="text" id="coName" required class="w-full p-3 border border-gray-300 rounded-lg outline-none focus:border-orange-500"></div>
+                                    <div><label class="block text-sm font-bold text-gray-700 mb-1">Telefonnummer *</label><input type="tel" id="coPhone" required class="w-full p-3 border border-gray-300 rounded-lg outline-none focus:border-orange-500"></div>
+                                </div>
+                                <div><label class="block text-sm font-bold text-gray-700 mb-1">Gewünschte Abholzeit *</label><input type="time" id="coTime" required class="w-full md:w-1/2 p-3 border border-gray-300 rounded-lg outline-none focus:border-orange-500"></div>
+
+                                <h3 class="text-xl font-bold border-b pb-2 mt-8">Zahlungsmethode</h3>
+                                <div class="space-y-3">
+                                    <label class="flex items-center p-4 border border-gray-200 rounded-lg cursor-pointer ${state.checkoutData.paymentMethod === 'twint' ? 'border-orange-500 bg-orange-50' : ''}">
+                                        <input type="radio" name="payment" value="twint" ${state.checkoutData.paymentMethod === 'twint' ? 'checked' : ''} class="w-4 h-4 text-orange-600">
+                                        <span class="ml-3 font-bold flex-1 flex items-center justify-between">TWINT <span class="bg-black text-white px-2 py-0.5 rounded text-xs">TWINT</span></span>
+                                    </label>
+                                    ${state.checkoutData.paymentMethod === 'twint' ? `<div class="ml-7 p-3 bg-blue-50 text-blue-800 text-sm rounded-lg border border-blue-100">Überweise CHF ${total.toFixed(2)} an <strong>076 321 23 92</strong>.</div>` : ''}
+
+                                    <label class="flex items-center p-4 border border-gray-200 rounded-lg cursor-pointer ${state.checkoutData.paymentMethod === 'cash' ? 'border-orange-500 bg-orange-50' : ''}">
+                                        <input type="radio" name="payment" value="cash" ${state.checkoutData.paymentMethod === 'cash' ? 'checked' : ''} class="w-4 h-4 text-orange-600">
+                                        <span class="ml-3 font-bold flex-1 flex items-center justify-between">Barzahlung <i class="fa-solid fa-coins text-gray-400"></i></span>
+                                    </label>
+                                </div>
+                                <div class="pt-6 mt-6 border-t border-gray-100">
+                                    <button type="submit" class="w-full bg-green-600 text-white font-bold py-4 rounded-xl hover:bg-green-700 shadow-lg text-lg flex justify-center items-center gap-2"><i class="fa-solid fa-check"></i> Kostenpflichtig bestellen (CHF ${total.toFixed(2)})</button>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="lg:col-span-1">
+                            <div class="bg-gray-100 p-6 rounded-2xl sticky top-24">
+                                <h3 class="font-bold mb-4 border-b border-gray-200 pb-2">Übersicht</h3>
+                                <div class="space-y-3 mb-6 text-sm">
+                                    ${state.cart.map(item => `<div class="flex justify-between"><span class="text-gray-600">${item.quantity}x ${item.name}</span><span class="font-medium">CHF ${(item.price * item.quantity).toFixed(2)}</span></div>`).join('')}
+                                </div>
+                                <div class="border-t border-gray-300 pt-4 flex justify-between font-bold text-xl"><span>Total</span><span class="text-red-600">CHF ${total.toFixed(2)}</span></div>
+                                <button data-action="toggle-cart" class="w-full mt-6 py-2 border border-gray-300 rounded-lg text-sm bg-white font-bold">Bearbeiten</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderSuccess() {
+            return `
+                <div class="max-w-xl mx-auto px-4 py-20 text-center">
+                    <div class="w-24 h-24 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6 text-4xl"><i class="fa-solid fa-check"></i></div>
+                    <h1 class="text-4xl font-serif font-bold text-gray-800 mb-4">Vielen Dank!</h1>
+                    <p class="text-gray-600 text-lg mb-8">Deine Bestellung ist eingegangen.</p>
+                    ${state.user ? `<button data-action="nav-my-orders" class="bg-orange-500 text-white px-8 py-3 rounded-full font-bold shadow mb-4 block w-full">Bestellstatus ansehen</button>` : ''}
+                    <button data-action="nav-menu" class="text-gray-500 font-bold hover:text-gray-800 underline">Zurück zur Karte</button>
+                </div>
+            `;
+        }
+
+        function renderFooter() {
+            return `
+                <footer class="bg-gray-900 text-gray-300 py-12 mt-auto border-t-4 border-red-600">
+                    <div class="max-w-6xl mx-auto px-4 text-center">
+                        <h4 class="text-white text-2xl font-bold mb-1 font-cursive text-red-500">Ceylon</h4>
+                        <h4 class="text-white text-lg font-bold mb-4 font-serif uppercase tracking-widest">Spicy Kitchen</h4>
+                        <p class="text-sm text-gray-500"><i class="fa-solid fa-phone text-orange-500"></i> 076 321 23 92 | Switzerland</p>
+                    </div>
+                </footer>
+            `;
+        }
+
+        // --- 6. EVENT LISTENER ---
+        function attachEventListeners() {
+            document.querySelectorAll('[data-action]').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const action = btn.getAttribute('data-action');
+                    
+                    // Navigation
+                    if (action === 'nav-menu') { state.currentView = 'menu'; state.isCartOpen = false; render(); }
+                    if (action === 'nav-login') { state.currentView = 'login'; state.isCartOpen = false; render(); }
+                    if (action === 'nav-admin') { state.currentView = 'admin'; state.isCartOpen = false; render(); }
+                    if (action === 'nav-my-orders') { state.currentView = 'my-orders'; state.isCartOpen = false; render(); }
+                    if (action === 'logout') { await signOut(auth); showToast('Erfolgreich abgemeldet'); }
+                    if (action === 'toggle-auth-mode') { state.authMode = state.authMode === 'login' ? 'register' : 'login'; render(); }
+                    
+                    // Admin Tabs
+                    if (action === 'admin-tab-orders') { state.adminTab = 'orders'; render(); }
+                    if (action === 'admin-tab-menu') { state.adminTab = 'menu'; render(); }
+                    
+                    // Modal & Cart
+                    if (action === 'view-item') {
+                        const id = btn.getAttribute('data-id');
+                        state.selectedItem = state.menuItems.find(i => i.id === id);
+                        state.selectedQuantity = 1;
+                        render();
+                    }
+                    if (action === 'close-modal') { state.selectedItem = null; render(); }
+                    if (action === 'toggle-cart') { state.isCartOpen = !state.isCartOpen; render(); }
+                    if (action === 'go-checkout') { state.currentView = 'checkout'; state.isCartOpen = false; render(); }
+                    if (action === 'modal-qty-plus') { state.selectedQuantity++; render(); }
+                    if (action === 'modal-qty-minus') { if (state.selectedQuantity > 1) state.selectedQuantity--; render(); }
+                    if (action === 'add-to-cart') {
+                        const existing = state.cart.find(i => i.id === state.selectedItem.id);
+                        if (existing) existing.quantity += state.selectedQuantity;
+                        else state.cart.push({ ...state.selectedItem, quantity: state.selectedQuantity });
+                        state.selectedItem = null; state.isCartOpen = true; render();
+                    }
+                    if (action === 'cart-plus') { state.cart[btn.getAttribute('data-index')].quantity++; render(); }
+                    if (action === 'cart-minus') {
+                        const idx = btn.getAttribute('data-index');
+                        if (state.cart[idx].quantity > 1) state.cart[idx].quantity--;
+                        else state.cart.splice(idx, 1);
+                        if (state.cart.length === 0 && state.currentView === 'checkout') state.currentView = 'menu';
+                        render();
+                    }
+                    if (action === 'cart-remove') {
+                        state.cart.splice(btn.getAttribute('data-index'), 1);
+                        if (state.cart.length === 0 && state.currentView === 'checkout') state.currentView = 'menu';
+                        render();
+                    }
+
+                    // Admin Menu Actions
+                    if (action === 'new-item') { state.editingItem = null; state.form = { name: '', description: '', price: '', imageBase64: '' }; render(); }
+                    if (action === 'cancel-edit') { state.editingItem = null; state.form = { name: '', description: '', price: '', imageBase64: '' }; render(); }
+                    if (action === 'edit') {
+                        const item = state.menuItems.find(i => i.id === btn.getAttribute('data-id'));
+                        if (item) { state.editingItem = item; state.form = { ...item }; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+                    }
+                    if (action === 'delete') {
+                        if (confirm('Wirklich löschen?')) {
+                            try { await deleteDoc(doc(db, "menu", btn.getAttribute('data-id'))); state.menuItems = state.menuItems.filter(i => i.id !== id); showToast('Gericht gelöscht'); render(); } 
+                            catch (err) { alert("Fehler: " + err.message); }
+                        }
+                    }
+
+                    // Admin Order Status Update
+                    if (action === 'update-status') {
+                        const orderId = btn.getAttribute('data-id');
+                        const newStatus = btn.getAttribute('data-status');
+                        try {
+                            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+                            await updateDoc(doc(db, "orders", orderId), { status: newStatus });
+                            showToast('Status aktualisiert auf: ' + newStatus);
+                            // render() wird automatisch durch den onSnapshot Listener aufgerufen
+                        } catch (err) { alert("Fehler beim Update: " + err.message); }
+                    }
+                });
+            });
+
+            // Radio Buttons Checkout
+            document.querySelectorAll('input[name="payment"]').forEach(radio => {
+                radio.addEventListener('change', (e) => { state.checkoutData.paymentMethod = e.target.value; render(); });
+            });
+
+            // Auth Form (Login / Register)
+            const authForm = document.getElementById('authForm');
+            if (authForm) {
+                authForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const email = document.getElementById('authEmail').value;
+                    const pass = document.getElementById('authPassword').value;
+                    const btn = authForm.querySelector('button');
+                    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Bitte warten...';
+                    
+                    try {
+                        if (state.authMode === 'login') {
+                            await signInWithEmailAndPassword(auth, email, pass);
+                            showToast('Erfolgreich eingeloggt!');
+                        } else {
+                            await createUserWithEmailAndPassword(auth, email, pass);
+                            showToast('Konto erfolgreich erstellt!');
+                        }
+                        // Umleitung basierend auf Rolle passiert automatisch via onAuthStateChanged
+                    } catch (err) { 
+                        alert("Fehler: " + (err.code === 'auth/email-already-in-use' ? 'E-Mail wird bereits verwendet.' : 'Zugangsdaten prüfen.')); 
+                        render();
+                    }
+                });
+            }
+
+            // Checkout Form
+            const checkoutForm = document.getElementById('checkoutForm');
+            if (checkoutForm) {
+                checkoutForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const btn = checkoutForm.querySelector('button[type="submit"]');
+                    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verarbeite...';
+                    btn.disabled = true;
+
+                    state.checkoutData.name = document.getElementById('coName').value;
+                    state.checkoutData.phone = document.getElementById('coPhone').value;
+                    state.checkoutData.pickupTime = document.getElementById('coTime').value;
+
+                    const orderObj = {
+                        userId: state.user ? state.user.uid : null, // Verknüpfung mit Kundenkonto (falls eingeloggt)
+                        customer: state.checkoutData,
+                        items: state.cart,
+                        totalAmount: calculateCartTotal(),
+                        status: 'neu',
+                        createdAt: serverTimestamp()
+                    };
+
+                    try {
+                        await addDoc(collection(db, "orders"), orderObj);
+                        state.cart = []; state.currentView = 'success'; window.scrollTo({ top: 0, behavior: 'smooth' }); render();
+                    } catch (err) {
+                        alert("Fehler bei der Bestellung. Bitte Sicherheitsregeln in Firebase prüfen.");
+                        render();
+                    }
+                });
+            }
+
+            // Admin Form (Gerichte)
+            const adminForm = document.getElementById('adminForm');
+            if (adminForm) {
+                document.getElementById('formImageInput').addEventListener('change', (e) => {
+                    if (e.target.files[0]) compressImageToBase64(e.target.files[0], (base64) => { state.form.imageBase64 = base64; render(); });
+                });
+                adminForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const itemData = {
+                        name: document.getElementById('formName').value,
+                        description: document.getElementById('formDesc').value,
+                        price: parseFloat(document.getElementById('formPrice').value),
+                        imageBase64: state.form.imageBase64
+                    };
+                    try {
+                        if (state.editingItem) {
+                            await updateDoc(doc(db, "menu", state.editingItem.id), itemData);
+                            const idx = state.menuItems.findIndex(i => i.id === state.editingItem.id);
+                            state.menuItems[idx] = { id: state.editingItem.id, ...itemData };
+                        } else {
+                            const docRef = await addDoc(collection(db, "menu"), itemData);
+                            state.menuItems.push({ id: docRef.id, ...itemData });
+                        }
+                        state.editingItem = null; state.form = { name: '', description: '', price: '', imageBase64: '' };
+                        showToast('Gericht gespeichert!'); render();
+                    } catch (err) { alert("Fehler beim Speichern."); }
+                });
+            }
+        }
+    </script>
+</body>
+</html>
