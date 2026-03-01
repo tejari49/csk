@@ -106,24 +106,24 @@
 // --- LANGUAGE SYSTEM (DE / EN / TA) ---
 const translations = {
     de: {
-        menu: "${t('menu')}",
-        cart: "${t('cart')}",
-        account: "${t('account')}",
+        menu: "Men├╝",
+        cart: "Warenkorb",
+        account: "Konto",
         admin: "Admin",
-        orders: "${t('orders')}",
-        my_orders: "Meine ${t('orders')}",
+        orders: "Bestellungen",
+        my_orders: "Meine Bestellungen",
         login: "Login",
         register: "Registrieren",
-        logout: "Abmelden",
-        add_to_cart: "${t('add_to_cart')}",
-        our_menu: "${t('our_menu')}",
-        loading_menu: "${t('loading_menu')}",
-        checkout: "${t('checkout')}",
-        thanks: "${t('thanks')}",
-        order_received: "${t('order_received')}",
-        back_to_menu: "${t('back_to_menu')}",
-        install_app: "${t('install_app')}",
-        install: "${t('install')}"
+        add_to_cart: "Hinzuf├╝gen",
+        loading_menu: "Lade Speisekarte...",
+        our_menu: "Unsere Speisekarte",
+        checkout: "Zur Kasse",
+        checkout_title: "Bestellung abschliessen",
+        thank_you: "Vielen Dank!",
+        order_success: "Deine Bestellung ist erfolgreich eingegangen.",
+        back_to_menu: "Zur├╝ck zur Karte",
+        install_app: "App laden",
+        install: "Installieren"
     },
     en: {
         menu: "Menu",
@@ -134,13 +134,13 @@ const translations = {
         my_orders: "My orders",
         login: "Login",
         register: "Register",
-        logout: "Logout",
-        add_to_cart: "Add",
-        our_menu: "Our menu",
+        add_to_cart: "Add to cart",
         loading_menu: "Loading menu...",
+        our_menu: "Our menu",
         checkout: "Checkout",
-        thanks: "Thank you!",
-        order_received: "Your order has been received successfully.",
+        checkout_title: "Complete order",
+        thank_you: "Thank you!",
+        order_success: "Your order has been received successfully.",
         back_to_menu: "Back to menu",
         install_app: "Get app",
         install: "Install"
@@ -154,13 +154,13 @@ const translations = {
         my_orders: "роОройрпН роЖро░рпНроЯро░рпНроХро│рпН",
         login: "роЙро│рпНроирпБро┤рпИро╡рпБ",
         register: "рокродро┐ро╡рпБ",
-        logout: "ро╡рпЖро│ро┐ропрпЗро▒рпБ",
-        add_to_cart: "роЪрпЗро░рпН",
-        our_menu: "роОроЩрпНроХро│рпН роорпЖройрпБ",
+        add_to_cart: "роХрпВроЯрпИропро┐ро▓рпН роЪрпЗро░рпН",
         loading_menu: "роорпЖройрпБ роПро▒рпНро▒рокрпНрокроЯрпБроХро┐ро▒родрпБ...",
+        our_menu: "роОроЩрпНроХро│рпН роорпЖройрпБ",
         checkout: "рокрогроорпН роЪрпЖро▓рпБродрпНрод",
-        thanks: "роиройрпНро▒ро┐!",
-        order_received: "роЙроЩрпНроХро│рпН роЖро░рпНроЯро░рпН ро╡рпЖро▒рпНро▒ро┐роХро░рооро╛роХ рокрпЖро▒рокрпНрокроЯрпНроЯродрпБ.",
+        checkout_title: "роЖро░рпНроЯро░рпН роорпБроЯро┐роХрпНроХро╡рпБроорпН",
+        thank_you: "роиройрпНро▒ро┐!",
+        order_success: "роЙроЩрпНроХро│рпН роЖро░рпНроЯро░рпН ро╡рпЖро▒рпНро▒ро┐роХро░рооро╛роХ рокрпЖро▒рокрпНрокроЯрпНроЯродрпБ.",
         back_to_menu: "роорпЖройрпБро╡ро┐ро▒рпНроХрпБ родро┐ро░рпБроорпНрок",
         install_app: "роЖрокрпНрокрпИ рокрпЖро▒",
         install: "роиро┐ро▒рпБро╡"
@@ -183,6 +183,7 @@ try {
         else state.language = 'de';
     }
 } catch(e) {}
+
         let unsubscribeOrders = null;
         let isInitialOrderLoad = true;
 
@@ -216,7 +217,7 @@ try {
                 const querySnapshot = await getDocs(collection(db, "menu"));
                 state.menuItems = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             } catch (error) {
-                console.error("Fehler beim Laden der ${t('menu')}s:", error);
+                console.error("Fehler beim Laden der Men├╝s:", error);
             }
             state.loading = false;
             render();
@@ -347,7 +348,7 @@ try {
                                 </button>
                             ` : ''}
 
-                            <!-- ${t('cart')} (Desktop) -->
+                            <!-- Warenkorb (Desktop) -->
                             <button data-action="toggle-cart" class="hidden md:block relative text-gray-800 hover:text-red-600 transition p-2">
                                 <i class="fa-solid fa-cart-shopping text-2xl"></i>
                                 ${cartCount > 0 ? `<span class="absolute top-0 right-0 bg-red-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center transform translate-x-1 -translate-y-1">${cartCount}</span>` : ''}
@@ -357,11 +358,11 @@ try {
                             <nav class="hidden md:flex items-center gap-4 border-l pl-4 ml-2 border-gray-200">
                                 ${!state.user ? `
                                     <button data-action="nav-login" class="flex items-center gap-2 text-sm font-bold text-gray-600 hover:text-orange-500 bg-gray-100 px-4 py-2 rounded-full transition">
-                                        <i class="fa-solid fa-user"></i> Login
+                                        <i class="fa-solid fa-user"></i> ${t('login')}
                                     </button>
                                 ` : `
                                     <button data-action="${state.user.role === 'admin' ? 'nav-admin' : 'nav-my-orders'}" class="font-medium px-3 py-1 rounded-md transition ${['admin', 'my-orders'].includes(state.currentView) ? 'bg-orange-100 text-orange-600' : 'text-gray-600 hover:bg-gray-100'}">
-                                        <i class="fa-solid ${state.user.role === 'admin' ? 'fa-gear' : 'fa-list-check'}"></i> ${state.user.role === 'admin' ? 'Admin' : '${t('orders')}'}
+                                        <i class="fa-solid ${state.user.role === 'admin' ? 'fa-gear' : 'fa-list-check'}"></i> ${state.user.role === 'admin' ? t('admin') : t('orders')}
                                     </button>
                                     <button data-action="logout" class="text-gray-400 hover:text-red-600 transition" title="Logout">
                                         <i class="fa-solid fa-right-from-bracket text-lg"></i>
@@ -402,7 +403,7 @@ try {
                                 <i class="fa-solid ${!state.user ? 'fa-user' : (state.user.role === 'admin' ? 'fa-gear' : 'fa-list-check')} text-xl"></i>
                                 ${openOrdersCount > 0 ? `<span class="absolute -top-1 -right-2 bg-red-600 text-white text-[8px] font-bold rounded-full w-3 h-3 flex items-center justify-center border border-white"></span>` : ''}
                             </div>
-                            <span class="text-[10px] font-bold uppercase tracking-wider">${!state.user ? '${t('account')}' : (state.user.role === 'admin' ? 'Admin' : '${t('orders')}')}</span>
+                            <span class="text-[10px] font-bold uppercase tracking-wider">${!state.user ? t('account') : (state.user.role === 'admin' ? t('admin') : t('orders'))}</span>
                         </button>
                     </div>
                 </div>
@@ -437,7 +438,7 @@ try {
                 <div class="max-w-6xl mx-auto px-4 py-8 md:py-12">
                     ${state.isInstallable ? `
                         <div class="md:hidden bg-gradient-to-r from-orange-500 to-red-500 text-white p-4 rounded-2xl mb-8 flex justify-between items-center shadow-lg">
-                            <div><p class="font-bold">CSK App installieren</p><p class="text-xs opacity-90">F├╝r ein besseres Erlebnis</p></div>
+                            <div><p class="font-bold">CSK App</p><p class="text-xs opacity-90">F├╝r ein besseres Erlebnis</p></div>
                             <button data-action="install-app" class="bg-white text-orange-600 text-sm font-bold px-4 py-2 rounded-full shadow-sm"><i class="fa-solid fa-download mr-1"></i> ${t('install')}</button>
                         </div>
                     ` : ''}
@@ -498,9 +499,9 @@ try {
                             <div class="w-16 h-16 bg-orange-50 text-orange-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
                                 <i class="fa-solid ${isLogin ? 'fa-right-to-bracket' : 'fa-user-plus'}"></i>
                             </div>
-                            <h2 class="text-2xl font-bold text-gray-800">${isLogin ? 'Willkommen zur├╝ck!' : '${t('account')} erstellen'}</h2>
+                            <h2 class="text-2xl font-bold text-gray-800">${isLogin ? 'Willkommen zur├╝ck!' : 'Konto erstellen'}</h2>
                             <p class="text-sm text-gray-500 mt-2">
-                                ${isLogin ? 'Logge dich ein, um deine ${t('orders')} zu sehen.' : 'Erstelle ein ${t('account')} f├╝r schnellere ${t('orders')}.'}
+                                ${isLogin ? 'Logge dich ein, um deine Bestellungen zu sehen.' : 'Erstelle ein Konto f├╝r schnellere Bestellungen.'}
                             </p>
                         </div>
                         
@@ -517,7 +518,7 @@ try {
                         </form>
                         
                         <div class="mt-8 text-center text-sm text-gray-500 pt-6 border-t border-gray-100">
-                            ${isLogin ? 'Noch kein ${t('account')}?' : 'Bereits registriert?'} 
+                            ${isLogin ? 'Noch kein Konto?' : 'Bereits registriert?'} 
                             <button data-action="toggle-auth-mode" class="text-orange-600 font-bold hover:underline ml-1">
                                 ${isLogin ? 'Hier registrieren' : 'Hier einloggen'}
                             </button>
@@ -532,7 +533,7 @@ try {
             if (!state.user || state.user.role === 'admin') return '';
             
             const ordersHtml = state.orders.length === 0 
-                ? `<div class="bg-white p-10 rounded-2xl border border-gray-100 text-center text-gray-500 shadow-sm"><i class="fa-solid fa-receipt text-4xl text-gray-200 mb-3 block"></i>Keine ${t('orders')} vorhanden.</div>`
+                ? `<div class="bg-white p-10 rounded-2xl border border-gray-100 text-center text-gray-500 shadow-sm"><i class="fa-solid fa-receipt text-4xl text-gray-200 mb-3 block"></i>Keine Bestellungen vorhanden.</div>`
                 : state.orders.map(order => `
                     <div class="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-gray-100 mb-4">
                         <div class="flex flex-wrap justify-between items-start gap-4 mb-4 border-b border-gray-100 pb-4">
@@ -559,7 +560,7 @@ try {
             return `
                 <div class="max-w-4xl mx-auto px-4 py-8">
                     <h1 class="text-2xl md:text-3xl font-serif font-bold text-gray-800 mb-6 md:mb-8 flex items-center gap-3">
-                        <i class="fa-solid fa-list-check text-orange-500"></i> Meine ${t('orders')}
+                        <i class="fa-solid fa-list-check text-orange-500"></i> Meine Bestellungen
                     </h1>
                     ${ordersHtml}
                     <div class="mt-8 text-center">
@@ -585,7 +586,7 @@ try {
                         </h1>
                         <div class="flex bg-gray-100 p-1 rounded-xl w-full md:w-auto overflow-x-auto">
                             <button data-action="admin-tab-orders" class="flex-1 md:flex-none px-4 md:px-6 py-2.5 rounded-lg font-bold transition flex items-center justify-center gap-2 whitespace-nowrap text-sm md:text-base ${isOrdersTab ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-500'}">
-                                <i class="fa-solid fa-bell"></i> Live-${t('orders')} 
+                                <i class="fa-solid fa-bell"></i> Live-Bestellungen 
                                 ${openOrdersCount > 0 ? `<span class="bg-red-600 text-white text-xs px-2 py-0.5 rounded-full">${openOrdersCount}</span>` : ''}
                             </button>
                             <button data-action="admin-tab-menu" class="flex-1 md:flex-none px-4 md:px-6 py-2.5 rounded-lg font-bold transition flex items-center justify-center gap-2 whitespace-nowrap text-sm md:text-base ${!isOrdersTab ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-500'}">
@@ -599,7 +600,7 @@ try {
         }
 
         function renderAdminOrders() {
-            if (state.orders.length === 0) return `<div class="text-center py-10 bg-white rounded-xl border text-gray-500">Keine ${t('orders')}.</div>`;
+            if (state.orders.length === 0) return `<div class="text-center py-10 bg-white rounded-xl border text-gray-500">Keine Bestellungen.</div>`;
 
             return `
                 <div class="grid grid-cols-1 gap-4 md:gap-6">
@@ -692,7 +693,7 @@ try {
         function renderCartModal() {
             const total = calculateCartTotal();
             let cartItemsHtml = state.cart.length === 0 
-                ? `<div class="text-center py-16 text-gray-500"><i class="fa-solid fa-basket-shopping text-5xl mb-4 text-gray-200 block"></i>${t('cart')} ist leer.</div>`
+                ? `<div class="text-center py-16 text-gray-500"><i class="fa-solid fa-basket-shopping text-5xl mb-4 text-gray-200 block"></i>Warenkorb ist leer.</div>`
                 : state.cart.map((item, index) => `
                     <div class="flex items-center gap-3 py-4 border-b border-gray-100">
                         <div class="w-14 h-14 rounded-xl bg-gray-100 overflow-hidden flex-shrink-0 hidden sm:block">
@@ -735,7 +736,7 @@ try {
             
             return `
                 <div class="max-w-4xl mx-auto px-4 py-6 md:py-10">
-                    <h1 class="text-2xl md:text-3xl font-serif font-bold text-gray-800 mb-6 md:mb-8 border-b pb-4">Bestellung abschliessen</h1>
+                    <h1 class="text-2xl md:text-3xl font-serif font-bold text-gray-800 mb-6 md:mb-8 border-b pb-4">${t('checkout_title')}</h1>
                     
                     ${!state.user ? `
                         <div class="bg-orange-50 border border-orange-200 p-4 md:p-5 rounded-2xl mb-6 md:mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -779,7 +780,7 @@ try {
                                     ${state.cart.map(item => `<div class="flex justify-between items-start gap-2"><span class="text-gray-600 leading-tight"><span class="font-bold text-gray-800">${item.quantity}x</span> ${item.name}</span><span class="font-medium whitespace-nowrap">CHF ${(item.price * item.quantity).toFixed(2)}</span></div>`).join('')}
                                 </div>
                                 <div class="border-t border-gray-300 pt-4 flex justify-between font-bold text-xl"><span>Total</span><span class="text-red-600">CHF ${total.toFixed(2)}</span></div>
-                                <button data-action="toggle-cart" class="w-full mt-6 py-3 border border-gray-300 rounded-xl text-sm bg-white font-bold hover:bg-gray-50 transition shadow-sm">${t('cart')} bearbeiten</button>
+                                <button data-action="toggle-cart" class="w-full mt-6 py-3 border border-gray-300 rounded-xl text-sm bg-white font-bold hover:bg-gray-50 transition shadow-sm">Warenkorb bearbeiten</button>
                             </div>
                         </div>
                     </div>
@@ -791,8 +792,8 @@ try {
             return `
                 <div class="max-w-xl mx-auto px-4 py-16 md:py-24 text-center">
                     <div class="w-20 h-20 md:w-24 md:h-24 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl md:text-4xl shadow-inner"><i class="fa-solid fa-check"></i></div>
-                    <h1 class="text-3xl md:text-4xl font-serif font-bold text-gray-800 mb-4">${t('thanks')}</h1>
-                    <p class="text-gray-600 text-base md:text-lg mb-8">${t('order_received')}</p>
+                    <h1 class="text-3xl md:text-4xl font-serif font-bold text-gray-800 mb-4">${t('thank_you')}</h1>
+                    <p class="text-gray-600 text-base md:text-lg mb-8">${t('order_success')}</p>
                     ${state.user ? `<button data-action="nav-my-orders" class="bg-orange-500 text-white px-8 py-3.5 rounded-full font-bold shadow-lg mb-4 block w-full hover:bg-orange-600 transition">Bestellstatus ansehen</button>` : ''}
                     <button data-action="nav-menu" class="text-gray-500 font-bold hover:text-gray-800 underline p-2">${t('back_to_menu')}</button>
                 </div>
@@ -813,6 +814,7 @@ try {
 
         // --- 6. EVENT LISTENER ---
         function attachEventListeners() {
+
 // Language Switcher
 document.querySelectorAll('[data-action="change-language"]').forEach(sel => {
     sel.addEventListener('change', (e) => {
@@ -860,7 +862,7 @@ document.querySelectorAll('[data-action="change-language"]').forEach(sel => {
                         if (existing) existing.quantity += state.selectedQuantity;
                         else state.cart.push({ ...state.selectedItem, quantity: state.selectedQuantity });
                         state.selectedItem = null; state.isCartOpen = true; 
-                        showToast('Im ${t('cart')}!', 'success');
+                        showToast('Im Warenkorb!', 'success');
                         render();
                     }
                     if (action === 'cart-plus') { state.cart[btn.getAttribute('data-index')].quantity++; render(); }
@@ -925,7 +927,7 @@ document.querySelectorAll('[data-action="change-language"]').forEach(sel => {
                             showToast('Erfolgreich eingeloggt!');
                         } else {
                             await createUserWithEmailAndPassword(auth, email, pass);
-                            showToast('${t('account')} erfolgreich erstellt!');
+                            showToast('Konto erfolgreich erstellt!');
                         }
                     } catch (err) { 
                         alert("Fehler: " + (err.code === 'auth/email-already-in-use' ? 'E-Mail wird bereits verwendet.' : 'Zugangsdaten pr├╝fen.')); 
