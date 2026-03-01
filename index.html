@@ -97,6 +97,8 @@
             
             language: 'de', // de | en
             
+            isGuideOpen: false,
+            guideMode: 'customer', // customer | admin
             // PWA Install State
             deferredPrompt: null,
             isInstallable: false
@@ -137,6 +139,29 @@ const translations = {
                 already_registered: "Bereits registriert?",
                 register_here: "Hier registrieren",
                 login_here: "Hier einloggen",
+                toast_lang: "Sprache geändert",
+                toast_added_cart: "Im Warenkorb!",
+                toast_removed: "Entfernt",
+                toast_order_sent: "Bestellung gesendet ✅",
+                toast_login_ok: "Erfolgreich eingeloggt!",
+                toast_register_ok: "Konto erstellt!",
+                toast_logout_ok: "Erfolgreich abgemeldet",
+                toast_saved: "Gespeichert ✅",
+                toast_deleted: "Gelöscht",
+                toast_status: "Status aktualisiert",
+                help: "Hilfe",
+                guide_title_customer: "Willkommen bei CSK 👋",
+                guide_title_admin: "Admin Kurzanleitung ⚙️",
+                guide_customer_1: "1) Menü: Tippe auf ein Gericht → Menge wählen → hinzufügen.",
+                guide_customer_2: "2) Warenkorb: Unten auf das Korb-Symbol → zur Kasse.",
+                guide_customer_3: "3) Checkout: Name/Telefon/Abholzeit wählen → bestellen.",
+                guide_customer_4: "Optional: Login speichert deine Bestellungen.",
+                guide_admin_1: "1) Live-Bestellungen: neue Bestellungen erscheinen automatisch (🔔 Ton).",
+                guide_admin_2: "2) Status: Neu → Küche → Bereit → Fertig. Buttons rechts.",
+                guide_admin_3: "3) Speisekarte: Gericht hinzufügen/bearbeiten/löschen.",
+                guide_admin_4: "Tipp: Bei Updates Seite einmal neu laden.",
+                guide_ok: "Verstanden",
+                guide_noagain: "Nicht mehr anzeigen",
     },
     en: {
         menu: "Menu",
@@ -170,6 +195,29 @@ const translations = {
                 already_registered: "Already registered?",
                 register_here: "Register here",
                 login_here: "Sign in here",
+                toast_lang: "Language changed",
+                toast_added_cart: "Added to cart!",
+                toast_removed: "Removed",
+                toast_order_sent: "Order sent ✅",
+                toast_login_ok: "Logged in!",
+                toast_register_ok: "Account created!",
+                toast_logout_ok: "Logged out",
+                toast_saved: "Saved ✅",
+                toast_deleted: "Deleted",
+                toast_status: "Status updated",
+                help: "Help",
+                guide_title_customer: "Welcome to CSK 👋",
+                guide_title_admin: "Admin quick guide ⚙️",
+                guide_customer_1: "1) Menu: Tap a dish → choose quantity → add.",
+                guide_customer_2: "2) Cart: Tap basket icon → checkout.",
+                guide_customer_3: "3) Checkout: Enter name/phone/pickup time → place order.",
+                guide_customer_4: "Optional: Login saves your orders.",
+                guide_admin_1: "1) Live orders update automatically (🔔 sound on new).",
+                guide_admin_2: "2) Status: New → Kitchen → Ready → Done (buttons on right).",
+                guide_admin_3: "3) Menu: Add/edit/delete dishes.",
+                guide_admin_4: "Tip: After updates, reload once.",
+                guide_ok: "Got it",
+                guide_noagain: "Don’t show again",
     },
 };
 
@@ -198,11 +246,26 @@ try {
             e.preventDefault();
             state.deferredPrompt = e;
             state.isInstallable = true;
+            checkFirstTimeGuide();
             render();
         });
 
         // --- 3. INIT & DATEN LADEN ---
-        onAuthStateChanged(auth, (user) => {
+        
+
+function checkFirstTimeGuide() {
+    try {
+        const isAdmin = state.user?.role === 'admin';
+        const key = isAdmin ? 'csk_seen_admin' : 'csk_seen_customer';
+        const seen = localStorage.getItem(key);
+        if (!seen) {
+            state.isGuideOpen = true;
+            state.guideMode = isAdmin ? 'admin' : 'customer';
+        }
+    } catch(e) {}
+}
+
+onAuthStateChanged(auth, (user) => {
             if (user) {
                 const role = user.email === ADMIN_EMAIL ? 'admin' : 'customer';
                 state.user = { email: user.email, uid: user.uid, role: role };
@@ -257,6 +320,8 @@ try {
 
         // --- 4. HILFSFUNKTIONEN ---
         function showToast(message, type = 'success') {
+            // message can be plain text
+
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
             const color = type === 'success' ? 'bg-green-600' : 'bg-red-600';
@@ -265,6 +330,10 @@ try {
             container.appendChild(toast);
             setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 4000);
         }
+
+function showToastT(key, type = 'success') {
+    showToast(t(key), type);
+}
 
         function compressImageToBase64(file, callback) {
             const reader = new FileReader();
@@ -314,6 +383,12 @@ try {
                 </main>
                 ${renderFooter()}
                 ${renderMobileBottomNav()}
+
+
+<!-- Mobile Help FAB -->
+<button data-action="open-guide" class="md:hidden fixed bottom-20 right-4 z-50 bg-orange-600 text-white w-12 h-12 rounded-full shadow-xl flex items-center justify-center active:scale-95">
+    <i class="fa-solid fa-circle-question text-xl"></i>
+</button>
                 ${state.selectedItem ? renderItemModal() : ''}
                 ${state.isCartOpen ? renderCartModal() : ''}
             `;
@@ -372,7 +447,11 @@ try {
                                     <button data-action="logout" class="text-gray-400 hover:text-red-600 transition" title="Logout">
                                         <i class="fa-solid fa-right-from-bracket text-lg"></i>
                                     </button>
-                                `}
+                                
+                                    <button data-action=\"open-guide\" class=\"text-gray-400 hover:text-orange-600 transition\" title=\"${t('help')}\">
+                                        <i class=\"fa-solid fa-circle-question text-lg\"></i>
+                                    </button>
+`}
                             </nav>
                         </div>
                     </div>
@@ -734,6 +813,39 @@ try {
                 </div>
             `;
         }
+// --- ONBOARDING / HELP MODAL ---
+function renderGuideModal() {
+    const isAdmin = state.user?.role === 'admin';
+    const title = isAdmin ? t('guide_title_admin') : t('guide_title_customer');
+    const lines = isAdmin
+        ? [t('guide_admin_1'), t('guide_admin_2'), t('guide_admin_3'), t('guide_admin_4')]
+        : [t('guide_customer_1'), t('guide_customer_2'), t('guide_customer_3'), t('guide_customer_4')];
+
+    return `
+        <div class="fixed inset-0 bg-black/70 z-[70] flex items-end md:items-center justify-center p-0 md:p-4 backdrop-blur-sm modal-enter pb-safe">
+            <div class="bg-white rounded-t-3xl md:rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+                <div class="p-5 md:p-6 border-b border-gray-100 flex items-center justify-between">
+                    <div class="font-bold text-lg md:text-xl text-gray-800">${title}</div>
+                    <button data-action="close-guide" class="text-gray-400 bg-gray-100 rounded-full w-9 h-9 flex items-center justify-center hover:text-red-600 hover:bg-red-50">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                <div class="p-5 md:p-6 space-y-3 text-sm md:text-base text-gray-700">
+                    ${lines.map(l => `<div class="flex gap-3"><i class="fa-solid fa-circle-check text-green-600 mt-1"></i><div>${l}</div></div>`).join('')}
+                </div>
+                <div class="p-5 md:p-6 border-t border-gray-100 flex gap-3 pb-safe">
+                    <button data-action="guide-no-again" class="flex-1 bg-gray-100 text-gray-700 font-bold py-3 rounded-xl hover:bg-gray-200 transition">
+                        ${t('guide_noagain')}
+                    </button>
+                    <button data-action="close-guide" class="flex-1 bg-orange-600 text-white font-bold py-3 rounded-xl hover:bg-orange-700 transition">
+                        ${t('guide_ok')}
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
 
         function renderCheckout() {
             if (state.cart.length === 0) { state.currentView = 'menu'; return renderMenu(); }
@@ -824,8 +936,9 @@ try {
 document.querySelectorAll('[data-action="change-language"]').forEach(sel => {
     sel.addEventListener('change', (e) => {
         state.language = e.target.value;
-        try { localStorage.setItem('csk_lang', state.language); } catch(e) {}
-        render();
+                    try { localStorage.setItem('csk_lang', state.language); } catch(e) {}
+                    showToastT('toast_lang','success');
+                    render();
     });
 });
 
@@ -837,8 +950,24 @@ document.querySelectorAll('[data-action="change-language"]').forEach(sel => {
                     if (action === 'nav-login') { state.currentView = 'login'; state.isCartOpen = false; render(); window.scrollTo(0,0); }
                     if (action === 'nav-admin') { state.currentView = 'admin'; state.isCartOpen = false; render(); window.scrollTo(0,0); }
                     if (action === 'nav-my-orders') { state.currentView = 'my-orders'; state.isCartOpen = false; render(); window.scrollTo(0,0); }
-                    if (action === 'logout') { await signOut(auth); showToast('Erfolgreich abgemeldet'); }
+                    if (action === 'logout') { await signOut(auth); showToastT('toast_logout_ok','success'); }
                     if (action === 'toggle-auth-mode') { state.authMode = state.authMode === 'login' ? 'register' : 'login'; render(); }
+
+// Help / Onboarding
+if (action === 'open-guide') { 
+    state.isGuideOpen = true; 
+    state.guideMode = state.user?.role === 'admin' ? 'admin' : 'customer';
+    render(); 
+}
+if (action === 'close-guide') { state.isGuideOpen = false; render(); }
+if (action === 'guide-no-again') {
+    try {
+        const key = state.user?.role === 'admin' ? 'csk_seen_admin' : 'csk_seen_customer';
+        localStorage.setItem(key, '1');
+    } catch(e) {}
+    state.isGuideOpen = false;
+    render();
+}
                     
                     // PWA Install Prompt
                     if (action === 'install-app') {
@@ -867,7 +996,7 @@ document.querySelectorAll('[data-action="change-language"]').forEach(sel => {
                         if (existing) existing.quantity += state.selectedQuantity;
                         else state.cart.push({ ...state.selectedItem, quantity: state.selectedQuantity });
                         state.selectedItem = null; state.isCartOpen = true; 
-                        showToast('Im Warenkorb!', 'success');
+                        showToastT('toast_added_cart','success');
                         render();
                     }
                     if (action === 'cart-plus') { state.cart[btn.getAttribute('data-index')].quantity++; render(); }
@@ -896,7 +1025,7 @@ document.querySelectorAll('[data-action="change-language"]').forEach(sel => {
                                 const id = btn.getAttribute('data-id');
                                 await deleteDoc(doc(db, "menu", id)); 
                                 state.menuItems = state.menuItems.filter(i => i.id !== id); 
-                                showToast('Gericht gelöscht'); render(); 
+                                showToastT('toast_deleted','success'); render(); 
                             } catch (err) { alert("Fehler: " + err.message); }
                         }
                     }
@@ -907,7 +1036,7 @@ document.querySelectorAll('[data-action="change-language"]').forEach(sel => {
                         try {
                             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
                             await updateDoc(doc(db, "orders", orderId), { status: newStatus });
-                            showToast('Status: ' + newStatus);
+                            showToastT('toast_status','success');
                         } catch (err) { alert("Fehler beim Update: " + err.message); }
                     }
                 });
@@ -929,10 +1058,10 @@ document.querySelectorAll('[data-action="change-language"]').forEach(sel => {
                     try {
                         if (state.authMode === 'login') {
                             await signInWithEmailAndPassword(auth, email, pass);
-                            showToast('Erfolgreich eingeloggt!');
+                            showToastT('toast_login_ok','success');
                         } else {
                             await createUserWithEmailAndPassword(auth, email, pass);
-                            showToast('Konto erfolgreich erstellt!');
+                            showToastT('toast_register_ok','success');
                         }
                     } catch (err) { 
                         alert("Fehler: " + (err.code === 'auth/email-already-in-use' ? 'E-Mail wird bereits verwendet.' : 'Zugangsdaten prüfen.')); 
@@ -964,7 +1093,7 @@ document.querySelectorAll('[data-action="change-language"]').forEach(sel => {
 
                     try {
                         await addDoc(collection(db, "orders"), orderObj);
-                        state.cart = []; state.currentView = 'success'; window.scrollTo(0, 0); render();
+                        state.cart = []; state.currentView = 'success'; window.scrollTo(0, 0); showToastT('toast_order_sent','success'); render();
                     } catch (err) {
                         alert("Fehler bei der Bestellung. Bitte Sicherheitsregeln in Firebase prüfen.");
                         render();
@@ -995,7 +1124,7 @@ document.querySelectorAll('[data-action="change-language"]').forEach(sel => {
                             state.menuItems.push({ id: docRef.id, ...itemData });
                         }
                         state.editingItem = null; state.form = { name: '', description: '', price: '', imageBase64: '' };
-                        showToast('Gericht gespeichert!'); render();
+                        showToastT('toast_saved','success'); render();
                     } catch (err) { alert("Fehler beim Speichern."); }
                 });
             }
