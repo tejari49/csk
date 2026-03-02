@@ -410,18 +410,13 @@ function showToastT(key, type = 'success') {
             
             return `
                 <header class="bg-white shadow-sm sticky top-0 z-40 border-b border-gray-100">
-                    <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+                    <div class="max-w-6xl mx-auto px-4 py-2.5 flex justify-between items-center">
                         <!-- Logo -->
-                        <div class="flex items-center gap-3 cursor-pointer" data-action="nav-menu">
-                            <img src="logo-small.png" alt="CSK Logo" class="w-10 h-10 md:w-12 md:h-12 rounded-full border-2 border-orange-500 bg-white shadow-sm object-contain shrink-0" />
-                            <div class="flex flex-col">
+                        <div class="flex items-center gap-4 cursor-pointer" data-action="nav-menu">
+                            <img src="logo-small.png" alt="CSK Logo" class="w-14 h-14 md:w-16 md:h-16 rounded-full border-2 border-orange-500 bg-white shadow-sm object-contain shrink-0" />
+                            <div class="flex flex-col leading-tight">
                                 <span class="text-red-600 font-bold text-2xl md:text-3xl font-cursive leading-none">Ceylon</span>
-                                <span class="text-black font-serif text-sm md:text-lg leading-none font-bold tracking-wide uppercase mt-1">Spicy Kitchen</span>
-                            </div>
-                        </div>
-<div class="flex flex-col">
-                                <span class="text-red-600 font-bold text-2xl md:text-3xl font-cursive leading-none">Ceylon</span>
-                                <span class="text-black font-serif text-sm md:text-lg leading-none font-bold tracking-wide uppercase mt-1">Spicy Kitchen</span>
+                                <span class="text-black font-serif text-sm md:text-base leading-none font-bold tracking-[0.18em] uppercase mt-1">Spicy Kitchen</span>
                             </div>
                         </div>
 
@@ -571,9 +566,9 @@ function showToastT(key, type = 'success') {
                             
                             <div class="flex items-center gap-3 mt-auto">
                                 <div class="flex items-center bg-gray-100 rounded-xl border border-gray-200 overflow-hidden shrink-0">
-                                    <button data-action="modal-qty-minus" class="px-4 py-3 text-gray-600 hover:bg-gray-200 transition"><i class="fa-solid fa-minus"></i></button>
+                                    <button data-action="modal-qty-minus" class="px-4 py-2.5 text-gray-600 hover:bg-gray-200 transition"><i class="fa-solid fa-minus"></i></button>
                                     <span class="px-2 py-3 font-bold bg-white w-10 text-center">${state.selectedQuantity}</span>
-                                    <button data-action="modal-qty-plus" class="px-4 py-3 text-gray-600 hover:bg-gray-200 transition"><i class="fa-solid fa-plus"></i></button>
+                                    <button data-action="modal-qty-plus" class="px-4 py-2.5 text-gray-600 hover:bg-gray-200 transition"><i class="fa-solid fa-plus"></i></button>
                                 </div>
                                 <button data-action="add-to-cart" class="flex-1 bg-red-600 text-white font-bold py-4 px-4 rounded-xl hover:bg-red-700 transition shadow-md flex justify-center items-center gap-2">
                                     <i class="fa-solid fa-cart-plus"></i> ${t('add_to_cart')}
@@ -603,10 +598,10 @@ function showToastT(key, type = 'success') {
 
                 <form id="authForm" class="space-y-4">
                     <div>
-                        <input type="email" id="authEmail" placeholder="${t('email')}" required class="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none transition">
+                        <input type="email" id="authEmail" placeholder="${t('email')}" required class="w-full px-4 py-2.5.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none transition">
                     </div>
                     <div>
-                        <input type="password" id="authPassword" placeholder="${t('password')}" required minlength="6" class="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none transition">
+                        <input type="password" id="authPassword" placeholder="${t('password')}" required minlength="6" class="w-full px-4 py-2.5.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none transition">
                     </div>
                     <button type="submit" class="w-full bg-orange-600 text-white font-bold py-4 rounded-xl hover:bg-orange-700 transition shadow-md mt-2">
                         ${isLogin ? t('sign_in') : t('sign_up')}
