@@ -17,6 +17,7 @@
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 
     <title>Ceylon Spicy Kitchen</title>
+    <link rel="preload" href="logo-small.png" as="image">
     <link rel="icon" href="favicon.ico">
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -412,10 +413,13 @@ function showToastT(key, type = 'success') {
                     <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
                         <!-- Logo -->
                         <div class="flex items-center gap-3 cursor-pointer" data-action="nav-menu">
-                            <div class="w-10 h-10 md:w-12 md:h-12 rounded-full border-2 border-orange-500 flex items-center justify-center bg-white shadow-sm overflow-hidden shrink-0">
-                                <span class="text-orange-500 font-bold text-lg md:text-xl">CSK</span>
-                            </div>
+                            <img src="logo-small.png" alt="CSK Logo" class="w-10 h-10 md:w-12 md:h-12 rounded-full border-2 border-orange-500 bg-white shadow-sm object-contain shrink-0" />
                             <div class="flex flex-col">
+                                <span class="text-red-600 font-bold text-2xl md:text-3xl font-cursive leading-none">Ceylon</span>
+                                <span class="text-black font-serif text-sm md:text-lg leading-none font-bold tracking-wide uppercase mt-1">Spicy Kitchen</span>
+                            </div>
+                        </div>
+<div class="flex flex-col">
                                 <span class="text-red-600 font-bold text-2xl md:text-3xl font-cursive leading-none">Ceylon</span>
                                 <span class="text-black font-serif text-sm md:text-lg leading-none font-bold tracking-wide uppercase mt-1">Spicy Kitchen</span>
                             </div>
